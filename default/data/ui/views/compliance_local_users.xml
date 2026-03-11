@@ -22,22 +22,6 @@
         <fieldForValue>department</fieldForValue>
       </search>
     </input>
-    <input type="dropdown" token="filter_config" searchWhenChanged="true">
-      <label>Config</label>
-      <default>*</default>
-      <choice value="*">-- All Configs --</choice>
-      <search>
-        <query>
-          index=automation_local_user_group_audit sourcetype="custom:automation_local_user_group_audit:logs"
-          | spath input=_raw path=department output=department
-          | spath input=_raw path=config output=config
-          | where department="$filter_dept$" OR "$filter_dept$"="*"
-          | stats count by config | fields config
-        </query>
-        <fieldForLabel>config</fieldForLabel>
-        <fieldForValue>config</fieldForValue>
-      </search>
-    </input>
     <input type="dropdown" token="filter_host" searchWhenChanged="true">
       <label>Hostname</label>
       <default>*</default>
@@ -68,29 +52,24 @@
             index=automation_local_user_group_audit sourcetype="custom:automation_local_user_group_audit:logs"
             | spath input=_raw path=hostname               output=Host
             | spath input=_raw path=department             output=Department
-            | spath input=_raw path=config                 output=Config
             | spath input=_raw path=additional_users{}     output=additional_users_mv
             | spath input=_raw path=missing_users{}        output=missing_users_mv
             | spath input=_raw path=locked_accounts{}      output=locked_accounts_mv
             | spath input=_raw path=expired_accounts{}     output=expired_accounts_mv
             | spath input=_raw path=interactive_accounts{} output=interactive_accounts_mv
             | spath input=_raw path=baseline_accounts{}    output=baseline_accounts_mv
-            | spath input=_raw path=config_baseline_file   output=config_file
             | spath input=_raw path=host_override_file     output=host_file
-            | where (Host="$filter_host$"       OR "$filter_host$"="*")
-                AND (Config="$filter_config$"   OR "$filter_config$"="*")
-                AND (Department="$filter_dept$" OR "$filter_dept$"="*")
             | eval "Additional Users"    = if(isnull(mvjoin(additional_users_mv,    ", ")) OR mvjoin(additional_users_mv,    ", ")="", "-", mvjoin(additional_users_mv,    ", "))
             | eval "Missing Users"       = if(isnull(mvjoin(missing_users_mv,       ", ")) OR mvjoin(missing_users_mv,       ", ")="", "-", mvjoin(missing_users_mv,       ", "))
             | eval "Locked"              = if(isnull(mvjoin(locked_accounts_mv,     ", ")) OR mvjoin(locked_accounts_mv,     ", ")="", "-", mvjoin(locked_accounts_mv,     ", "))
             | eval "Expired"             = if(isnull(mvjoin(expired_accounts_mv,    ", ")) OR mvjoin(expired_accounts_mv,    ", ")="", "-", mvjoin(expired_accounts_mv,    ", "))
             | eval "Interactive"         = if(isnull(mvjoin(interactive_accounts_mv,", ")) OR mvjoin(interactive_accounts_mv,", ")="", "-", mvjoin(interactive_accounts_mv,", "))
             | eval "Baseline Accounts"   = if(isnull(mvjoin(baseline_accounts_mv,   ", ")) OR mvjoin(baseline_accounts_mv,   ", ")="", "-", mvjoin(baseline_accounts_mv,   ", "))
-            | eval "Baseline File"       = config_file + if(host_file="none" OR isnull(host_file), "", " + " + host_file)
             | join type=left Host [
                 search index=automation_local_user_group_audit sourcetype="user_audit_signoff"
                 event_type="audit_signoff"
-                | sort _time | dedup hostname
+                | sort - _time
+                | dedup hostname
                 | eval "Review Status" = decision + " — " + reviewed_by + " (" + strftime(_time, "%d/%m/%Y") + ")"
                 | table hostname "Review Status"
                 | rename hostname as Host
@@ -98,7 +77,7 @@
             | eval "Review Status" = coalesce('Review Status', "Pending")
             | dedup Host
             | sort Department Config Host
-            | table Host Department Config "Additional Users" "Missing Users" Locked Expired Interactive "Baseline Accounts" "Baseline File" "Review Status"
+            | table Host Department "Additional Users" "Missing Users" Locked Expired Interactive "Baseline Accounts" "Review Status"
           </query>
           <refresh>60s</refresh>
           <refreshType>delay</refreshType>
