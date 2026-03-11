@@ -57,6 +57,16 @@
     width: 100%;
     transition: opacity 0.3s ease;
 }
-.selected-row {
-    background: #eff6ff;
+.spinner {
+    display:inline-block;
+    width:14px;
+    height:14px;
+    border:2px solid #e5e7eb;
+    border-top:2px solid #1d4ed8;
+    border-radius:50%;
+    animation: spin 0.7s linear infinite;
+}
+
+@keyframes spin {
+    to { transform: rotate(360deg); }
 }

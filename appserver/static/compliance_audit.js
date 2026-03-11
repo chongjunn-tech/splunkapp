@@ -108,7 +108,8 @@ require([
     var status = document.getElementById("audit-search-status");
 
     function runAuditSearch() {
-        if (status) status.textContent = "Loading...";
+        showFeedback("Audit data loaded", "success");
+        // if (status) status.innerHTML = "<span class='spinner'></span> Loading...";
 
         var dept = tokens.get("filter_dept") || "*";
         var host = tokens.get("filter_host") || "*";
@@ -177,6 +178,57 @@ require([
             console.error("Audit search error:", err);
         });
     }
+    // function showFeedback(message, color) {
+    //     var feedback = document.getElementById("review-feedback");
+    //     if (!feedback) return;
+
+    //     feedback.textContent = message;
+    //     feedback.style.color = color;
+    //     feedback.style.opacity = "1";
+
+    //     setTimeout(function() {
+    //         feedback.style.opacity = "0";
+    //         setTimeout(function() {
+    //             feedback.textContent = "";
+    //         }, 300); // allow fade-out
+    //     }, 1000); 
+    // }
+    function showFeedback(message, statusType) {
+
+    var status = document.getElementById("audit-search-status");
+    if (!status) return;
+
+    var styles = {
+        success: "#166534",
+        error: "#991b1b",
+        warning: "#92400e",
+        info: "#1d4ed8",
+        loading: "#6b7280"
+    };
+
+    var icons = {
+        success: "✔ ",
+        error: "✖ ",
+        warning: "⚠ ",
+        info: "ℹ ",
+        loading: "⏳ "
+    };
+
+    status.textContent = (icons[statusType] || "") + message;
+    status.style.color = styles[statusType] || styles.info;
+    status.style.opacity = "1";
+
+    if (statusType !== "loading") {
+        setTimeout(function () {
+            status.style.opacity = "0";
+
+            setTimeout(function () {
+                status.textContent = "";
+            }, 300);
+
+        }, 2000);
+    }
+}
 
     runAuditSearch();
     tokens.on("change:filter_dept change:filter_host", function() {
@@ -197,12 +249,21 @@ require([
             if (hosts.length === 0) return;
 
             btn.disabled         = true;
-            // btn.textContent      = "Submitting...";
+            btn.textContent      = "Submitting...";
             btn.style.background = "#9ca3af";
             feedback.textContent = "";
 
-            var reviewer = "unknown";
-            try { reviewer = Splunk.util.getCurrentUser() || "unknown"; } catch(e) {}
+            var envTokens = mvc.Components.getInstance("env");
+            var reviewer  = envTokens.get("user") || "unknown";
+                
+            // Fallback if env tokens are empty (rare)
+            if (reviewer === "unknown") {
+                try {
+                    reviewer = Splunk.util.getCurrentUser();
+                } catch(e) {
+                    reviewer = "local_admin"; // Final fallback for local testing
+                }
+            }
 
             var now = new Date();
             var promises = hosts.map(function(host) {
@@ -240,14 +301,16 @@ require([
                     selected = {};
                     updateActionBar();
 
-                    feedback.textContent = hosts.length + " host(s) marked as reviewed by " + reviewer + ".";
-                    feedback.style.color = "#166534";
+                    showFeedback(
+                        hosts.length + " host(s) marked as reviewed by " + reviewer + ".: " + hosts,
+                        "success");
 
                     setTimeout(function() { runAuditSearch(); }, 2000);
                 })
                 .catch(function(err) {
-                    feedback.textContent = "Error: " + err.message;
-                    feedback.style.color = "#991b1b";
+                    showFeedback(
+                        "Error: " + err.message,
+                        "error");
                     btn.textContent      = "Mark Selected as Reviewed";
                     btn.disabled         = false;
                     btn.style.background = "#1d4ed8";
