@@ -1,4 +1,4 @@
-<form version="1.1" script="compliance_audit.js">
+<form version="1.1" script="compliance_audit.js" stylesheet="compliance_audit.css">
   <label>Compliance - Local Users Review</label>
   <description>Annual local user account compliance review. Baselines managed in GitLab by team.</description>
 
@@ -30,10 +30,8 @@
         <query>
           index=automation_local_user_group_audit sourcetype="custom:automation_local_user_group_audit:logs"
           | spath input=_raw path=department output=department
-          | spath input=_raw path=config output=config
           | spath input=_raw path=hostname output=hostname
           | where (department="$filter_dept$" OR "$filter_dept$"="*")
-              AND (config="$filter_config$" OR "$filter_config$"="*")
           | stats count by hostname | fields hostname
         </query>
         <fieldForLabel>hostname</fieldForLabel>
@@ -42,75 +40,20 @@
     </input>
   </fieldset>
 
-  <!-- AUDIT TABLE -->
+  <!-- AUDIT TABLE — rendered by JS for checkbox support -->
   <row>
     <panel>
       <title>Compliance - Local Users Review</title>
-      <table>
-        <search>
-          <query>
-            index=automation_local_user_group_audit sourcetype="custom:automation_local_user_group_audit:logs"
-            | spath input=_raw path=hostname               output=Host
-            | spath input=_raw path=department             output=Department
-            | spath input=_raw path=additional_users{}     output=additional_users_mv
-            | spath input=_raw path=missing_users{}        output=missing_users_mv
-            | spath input=_raw path=locked_accounts{}      output=locked_accounts_mv
-            | spath input=_raw path=expired_accounts{}     output=expired_accounts_mv
-            | spath input=_raw path=interactive_accounts{} output=interactive_accounts_mv
-            | spath input=_raw path=baseline_accounts{}    output=baseline_accounts_mv
-            | spath input=_raw path=host_override_file     output=host_file
-            | eval "Additional Users"    = if(isnull(mvjoin(additional_users_mv,    ", ")) OR mvjoin(additional_users_mv,    ", ")="", "-", mvjoin(additional_users_mv,    ", "))
-            | eval "Missing Users"       = if(isnull(mvjoin(missing_users_mv,       ", ")) OR mvjoin(missing_users_mv,       ", ")="", "-", mvjoin(missing_users_mv,       ", "))
-            | eval "Locked"              = if(isnull(mvjoin(locked_accounts_mv,     ", ")) OR mvjoin(locked_accounts_mv,     ", ")="", "-", mvjoin(locked_accounts_mv,     ", "))
-            | eval "Expired"             = if(isnull(mvjoin(expired_accounts_mv,    ", ")) OR mvjoin(expired_accounts_mv,    ", ")="", "-", mvjoin(expired_accounts_mv,    ", "))
-            | eval "Interactive"         = if(isnull(mvjoin(interactive_accounts_mv,", ")) OR mvjoin(interactive_accounts_mv,", ")="", "-", mvjoin(interactive_accounts_mv,", "))
-            | eval "Baseline Accounts"   = if(isnull(mvjoin(baseline_accounts_mv,   ", ")) OR mvjoin(baseline_accounts_mv,   ", ")="", "-", mvjoin(baseline_accounts_mv,   ", "))
-            | join type=left Host [
-                search index=automation_local_user_group_audit sourcetype="user_audit_signoff"
-                event_type="audit_signoff"
-                | sort - _time
-                | dedup hostname
-                | eval "Review Status" = decision + " — " + reviewed_by + " (" + strftime(_time, "%d/%m/%Y") + ")"
-                | table hostname "Review Status"
-                | rename hostname as Host
-              ]
-            | eval "Review Status" = coalesce('Review Status', "Pending")
-            | dedup Host
-            | sort Department Config Host
-            | table Host Department "Additional Users" "Missing Users" Locked Expired Interactive "Baseline Accounts" "Review Status"
-          </query>
-          <refresh>60s</refresh>
-          <refreshType>delay</refreshType>
-        </search>
-        <option name="drilldown">cell</option>
-        <option name="wrap">true</option>
-        <option name="rowNumbers">false</option>
-        <option name="dataOverlayMode">none</option>
-        <option name="count">100</option>
-        <format type="color" field="Review Status">
-          <colorPalette type="map">{"Pending":"#fef9c3","Approved":"#dcfce7"}</colorPalette>
-          <colorPalette type="map">{"Pending":"#854d0e","Approved":"#166534"}</colorPalette>
-        </format>
-        <drilldown>
-          <set token="selected_host">$row.Host$</set>
-        </drilldown>
-      </table>
-    </panel>
-  </row>
-
-  <!-- REVIEW PANEL — appears when a row is clicked -->
-  <row>
-    <panel>
-      <title>Submit Review</title>
       <html>
-        <div id="review-panel" style="padding:16px;font-family:Arial,sans-serif;font-size:13px;">
-          <p>Click any row in the table above to select a host for review.</p>
-          <p>Selected host: <strong id="review-host-label">None</strong></p>
+        <div id="audit-search-status" style="padding:8px;color:#6b7280;font-size:12px;">Loading...</div>
+        <div id="audit-table-container"></div>
+        <div id="audit-action-bar" style="display:none;padding:12px 0;border-top:1px solid #e5e7eb;margin-top:8px;">
+          <span id="audit-selected-count" style="font-size:13px;color:#374151;margin-right:16px;"></span>
           <button id="review-btn"
-            style="margin-top:10px;padding:8px 24px;font-size:13px;font-weight:bold;
+            style="padding:8px 24px;font-size:13px;font-weight:bold;
                    border:none;border-radius:4px;cursor:pointer;
                    background:#1d4ed8;color:#fff;">
-            Mark as Reviewed
+            Mark Selected as Reviewed
           </button>
           <span id="review-feedback" style="margin-left:16px;font-size:12px;"></span>
         </div>
