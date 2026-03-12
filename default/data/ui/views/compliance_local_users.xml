@@ -79,11 +79,9 @@
             index=automation_local_user_group_audit sourcetype="user_audit_signoff"
             event_type="audit_signoff"
             | eval "Signed Off At" = strftime(_time, "%d %b %Y %H:%M:%S")
-            | table "Signed Off At" hostname reviewed_by audit_year decision remarks
+            | table "Signed Off At" hostname reviewed_by remarks
             | rename hostname    as "Host"
                      reviewed_by as "Reviewed By"
-                     audit_year  as "Year"
-                     decision    as "Decision"
                      remarks     as "Remarks"
             | sort -"Signed Off At"
           </query>

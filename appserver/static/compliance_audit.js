@@ -9,6 +9,7 @@ require([
     var selected = {};
 
     var COLS = [
+        { key: "date_of_job",                  label: "Date of Job" },
         { key: "hostname",              label: "Host" },
         { key: "department",            label: "Department" },
         { key: "additional_users",      label: "Additional Users" },
@@ -71,12 +72,17 @@ require([
 
         rows.forEach(function(row) {
             var host       = row["hostname"] || "";
+
+            var jobDate = row["date_of_job"] || "";
+            // Create a unique key to identify this specific row
+            var uniqueKey = host + "|" + jobDate;
+            
             var isReviewed = row["reviewed_by_info"] && row["reviewed_by_info"] !== "-";
-            var checked    = selected[host] ? "checked" : "";
+            var checked    = selected[uniqueKey] ? "checked" : "";
             var rowClass   = isReviewed ? "reviewed" : "";
 
             html += "<tr class='" + rowClass + "'>";
-            html += "<td><input type='checkbox' class='row-chk' data-host='" + escHtml(host) + "' " + checked + "></td>";
+            html += "<td><input type='checkbox' class='row-chk' data-host='" + escHtml(host) + "' data-date='" + escHtml(jobDate) + "' " + checked + "></td>";
             COLS.forEach(function(c) {
                 html += "<td>" + escHtml(row[c.key] || "-") + "</td>";
             });
@@ -89,13 +95,16 @@ require([
         // Event delegation — one listener on the container handles all checkboxes
         container.addEventListener("change", function(e) {
             if (e.target && e.target.classList.contains("row-chk")) {
-                selected[e.target.getAttribute("data-host")] = e.target.checked;
+                // Create the unique key from both data attributes
+                var key = e.target.getAttribute("data-host") + "|" + e.target.getAttribute("data-date");
+                selected[key] = e.target.checked;
                 updateActionBar();
             }
             if (e.target && e.target.id === "chk-all") {
                 document.querySelectorAll(".row-chk").forEach(function(b) {
+                    var key = b.getAttribute("data-host") + "|" + b.getAttribute("data-date");
                     b.checked = e.target.checked;
-                    selected[b.getAttribute("data-host")] = e.target.checked;
+                    selected[key] = e.target.checked;
                 });
                 updateActionBar();
             }
@@ -114,9 +123,10 @@ require([
         var dept = tokens.get("filter_dept") || "*";
         var host = tokens.get("filter_host") || "*";
 
-        var query = [
+       var query = [
             'index=automation_local_user_group_audit sourcetype="custom:automation_local_user_group_audit:logs"',
             '| spath input=_raw path=hostname               output=hostname',
+            '| spath input=_raw path=time                   output=date_of_job',
             '| spath input=_raw path=department             output=department',
             '| spath input=_raw path=additional_users{}     output=additional_users_mv',
             '| spath input=_raw path=missing_users{}        output=missing_users_mv',
@@ -124,26 +134,29 @@ require([
             '| spath input=_raw path=expired_accounts{}     output=expired_accounts_mv',
             '| spath input=_raw path=interactive_accounts{} output=interactive_accounts_mv',
             '| spath input=_raw path=baseline_accounts{}    output=baseline_accounts_mv',
-            '| where (hostname="' + host + '" OR "' + host + '"="*")',
-            '    AND (department="' + dept + '" OR "' + dept + '"="*")',
-            '| eval additional_users     = if(isnull(mvjoin(additional_users_mv,    ", ")) OR mvjoin(additional_users_mv,    ", ")="", "-", mvjoin(additional_users_mv,    ", "))',
-            '| eval missing_users        = if(isnull(mvjoin(missing_users_mv,       ", ")) OR mvjoin(missing_users_mv,       ", ")="", "-", mvjoin(missing_users_mv,       ", "))',
-            '| eval locked_accounts      = if(isnull(mvjoin(locked_accounts_mv,     ", ")) OR mvjoin(locked_accounts_mv,     ", ")="", "-", mvjoin(locked_accounts_mv,     ", "))',
-            '| eval expired_accounts     = if(isnull(mvjoin(expired_accounts_mv,    ", ")) OR mvjoin(expired_accounts_mv,    ", ")="", "-", mvjoin(expired_accounts_mv,    ", "))',
+            '| where (hostname="' + host + '" OR "' + host + '"="*") AND (department="' + dept + '" OR "' + dept + '"="*")',
+            '| eval additional_users     = if(isnull(mvjoin(additional_users_mv, ", ")) OR mvjoin(additional_users_mv, ", ")="", "-", mvjoin(additional_users_mv, ", "))',
+            '| eval missing_users        = if(isnull(mvjoin(missing_users_mv,    ", ")) OR mvjoin(missing_users_mv,    ", ")="", "-", mvjoin(missing_users_mv,    ", "))',
+            '| eval locked_accounts      = if(isnull(mvjoin(locked_accounts_mv,  ", ")) OR mvjoin(locked_accounts_mv,  ", ")="", "-", mvjoin(locked_accounts_mv,  ", "))',
+            '| eval expired_accounts     = if(isnull(mvjoin(expired_accounts_mv, ", ")) OR mvjoin(expired_accounts_mv, ", ")="", "-", mvjoin(expired_accounts_mv, ", "))',
             '| eval interactive_accounts = if(isnull(mvjoin(interactive_accounts_mv,", ")) OR mvjoin(interactive_accounts_mv,", ")="", "-", mvjoin(interactive_accounts_mv,", "))',
-            '| eval baseline_accounts    = if(isnull(mvjoin(baseline_accounts_mv,   ", ")) OR mvjoin(baseline_accounts_mv,   ", ")="", "-", mvjoin(baseline_accounts_mv,   ", "))',
-            '| join type=left hostname [',
+            '| eval baseline_accounts    = if(isnull(mvjoin(baseline_accounts_mv, ", ")) OR mvjoin(baseline_accounts_mv, ", ")="", "-", mvjoin(baseline_accounts_mv, ", "))',
+            // FIXED: Added space before bracket and corrected subquery spath
+            '| join type=left hostname date_of_job [',
             '    search index=automation_local_user_group_audit sourcetype="user_audit_signoff" event_type="audit_signoff"',
-            '    | sort - _time | dedup hostname',
+            '    | spath input=_raw path=hostname    output=hostname',
+            '    | spath input=_raw path=date_of_job output=date_of_job', 
+            '    | sort - _time',
+            '    | dedup hostname date_of_job',
             '    | eval reviewed_by_info = reviewed_by',
             '    | eval review_date_info = strftime(_time, "%d/%m/%Y %H:%M")',
-            '    | table hostname reviewed_by_info review_date_info',
+            '    | table hostname date_of_job reviewed_by_info review_date_info',
             '  ]',
             '| eval reviewed_by_info = coalesce(reviewed_by_info, "-")',
             '| eval review_date_info = coalesce(review_date_info, "-")',
-            '| dedup hostname',
-            '| sort department hostname',
-            '| table hostname department additional_users missing_users locked_accounts expired_accounts interactive_accounts baseline_accounts reviewed_by_info review_date_info'
+            '| dedup hostname date_of_job',
+            '| sort department hostname -date_of_job',
+            '| table hostname date_of_job department additional_users missing_users locked_accounts expired_accounts interactive_accounts baseline_accounts reviewed_by_info review_date_info'
         ].join(" ");
 
         var sm = new SearchManager({
@@ -244,14 +257,12 @@ require([
         btn.style.opacity    = "0.7";
 
         btn.addEventListener("click", function() {
-            var feedback = document.getElementById("review-feedback");
-            var hosts    = Object.keys(selected).filter(function(k) { return selected[k]; });
-            if (hosts.length === 0) return;
+            var keys = Object.keys(selected).filter(function(k) { return selected[k]; });
+            if (keys.length === 0) return;
 
             btn.disabled         = true;
-            btn.textContent      = "Submitting...";
-            btn.style.background = "#9ca3af";
-            feedback.textContent = "";
+            showFeedback("Submitting reviews...", "loading");
+   
 
             var envTokens = mvc.Components.getInstance("env");
             var reviewer  = envTokens.get("user") || "unknown";
@@ -266,7 +277,11 @@ require([
             }
 
             var now = new Date();
-            var promises = hosts.map(function(host) {
+            var promises = keys.map(function(key) {
+                var parts = key.split("|");
+                var host = parts[0];
+                var jobDate = parts[1];
+
                 return fetch("http://localhost:8088/services/collector/event", {
                     method: "POST",
                     headers: {
@@ -278,12 +293,13 @@ require([
                         event: {
                             event_type:   "audit_signoff",
                             hostname:     host,
+                            date_of_job:  jobDate,
                             reviewed_by:  reviewer,
                             reviewed_at:  now.toISOString(),
                             audit_year:   String(now.getFullYear()),
-                            decision:     "Approved",
                             remarks:      "Reviewed via dashboard by " + reviewer,
-                            audit_source: "compliance_audit_app"
+                            audit_source: "compliance_audit_app",
+                            
                         }
                     })
                 }).then(function(r) { return r.json(); });
@@ -298,11 +314,16 @@ require([
                     btn.disabled         = true;
                     btn.style.background = "#9ca3af";
 
+                    // Create a clean list of hostnames for the UI message
+                    var hostNames = keys.map(function(k) { return k.split("|")[0]; });
+                    // Remove duplicates for the display message
+                    var uniqueNames = Array.from(new Set(hostNames));
+
                     selected = {};
                     updateActionBar();
 
                     showFeedback(
-                        hosts.length + " host(s) marked as reviewed by " + reviewer + ".: " + hosts,
+                        keys.length + " host(s) marked as reviewed by " + reviewer + ".: " + uniqueNames.join(", "),
                         "success");
 
                     setTimeout(function() { runAuditSearch(); }, 2000);
