@@ -18,11 +18,19 @@
           | spath input=_raw path=department output=department
           | stats count by department | fields department
         </query>
-        <fieldForLabel>department</fieldForLabel>
-        <fieldForValue>department</fieldForValue>
       </search>
+      <fieldForLabel>department</fieldForLabel>
+      <fieldForValue>department</fieldForValue>
+
+      <!-- Reset hostname when department changes -->
+      <change>
+        <set token="filter_host">*</set>
+        <set token="form.filter_host">*</set>
+      </change>
+
     </input>
-    <input type="dropdown" token="filter_host" searchWhenChanged="true">
+
+    <input type="dropdown" token="filter_host" searchWhenChanged="true" depends="$filter_dept$">
       <label>Hostname</label>
       <default>*</default>
       <choice value="*">-- All Hosts --</choice>
@@ -34,9 +42,9 @@
           | where (department="$filter_dept$" OR "$filter_dept$"="*")
           | stats count by hostname | fields hostname
         </query>
-        <fieldForLabel>hostname</fieldForLabel>
-        <fieldForValue>hostname</fieldForValue>
       </search>
+      <fieldForLabel>hostname</fieldForLabel>
+      <fieldForValue>hostname</fieldForValue>
     </input>
   </fieldset>
 
