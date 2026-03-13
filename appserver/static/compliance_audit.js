@@ -2,8 +2,9 @@
 require([
     "splunkjs/mvc",
     "splunkjs/mvc/searchmanager",
+    "app/compliance_audit/audit_config",
     "splunkjs/mvc/simplexml/ready!"
-], function(mvc, SearchManager) {
+], function(mvc, SearchManager,CONFIG) {
 
     var tokens   = mvc.Components.getInstance("default");
     var selected = {};
@@ -124,7 +125,7 @@ require([
         var host = tokens.get("filter_host") || "*";
 
        var query = [
-            'index=automation_local_user_group_audit sourcetype="custom:automation_local_user_group_audit:logs"',
+            'index=' + CONFIG.indexes.auditIndex + ' sourcetype="' + CONFIG.sourcetypes.auditLogs + '"',
             '| spath input=_raw path=hostname               output=hostname',
             '| spath input=_raw path=time                   output=date_of_job',
             '| spath input=_raw path=department             output=department',
@@ -168,7 +169,10 @@ require([
         }, { tokens: false });
 
         sm.on("search:done", function() {
-            var results = sm.data("results", { count: 1000, offset: 0 });
+            var results = sm.data("results", { 
+                count: CONFIG.ui.maxResults, 
+                offset: 0 
+            });
             results.on("data", function() {
                 var d = results.data();
                 if (!d || !d.rows || !d.fields) {
@@ -239,7 +243,7 @@ require([
                 status.textContent = "";
             }, 300);
 
-        }, 2000);
+        }, CONFIG.ui.refreshDelay);
     }
 }
 
@@ -282,10 +286,10 @@ require([
                 var host = parts[0];
                 var jobDate = parts[1];
 
-                return fetch("http://localhost:8088/services/collector/event", {
+                return fetch(CONFIG.splunk.hecUrl, {
                     method: "POST",
                     headers: {
-                        "Authorization": "Splunk 94567e0d-0e2d-491f-ae98-95ce35320d86"
+                        "Authorization": "Splunk " + CONFIG.splunk.hecToken
                     },
                     body: JSON.stringify({
                         sourcetype: "user_audit_signoff",
@@ -326,7 +330,7 @@ require([
                         keys.length + " host(s) marked as reviewed by " + reviewer + ".: " + uniqueNames.join(", "),
                         "success");
 
-                    setTimeout(function() { runAuditSearch(); }, 2000);
+                    setTimeout(function() { runAuditSearch(); }, CONFIG.ui.refreshDelay);
                 })
                 .catch(function(err) {
                     showFeedback(
