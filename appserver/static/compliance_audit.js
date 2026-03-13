@@ -2,7 +2,7 @@
 require([
     "splunkjs/mvc",
     "splunkjs/mvc/searchmanager",
-    "app/compliance_audit/audit_config",
+    "app/compliance_account_review/audit_config",
     "splunkjs/mvc/simplexml/ready!"
 ], function(mvc, SearchManager,CONFIG) {
 
