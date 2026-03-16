@@ -17,7 +17,7 @@ define([], function () {
 
         ui: {
             refreshDelay: 2000,
-            maxResults: 1000
+            pageSize: 10,
         }
     };
 

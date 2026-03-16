@@ -59,6 +59,7 @@
       <html>
         <div id="audit-search-status" style="padding:8px;color:#6b7280;font-size:12px;">Loading...</div>
         <div id="audit-table-container"></div>
+        <div id="audit-pager" style="display:flex;align-items:center;gap:4px;margin-top:10px;flex-wrap:wrap;"></div>
         <div id="audit-action-bar" style="display:none;padding:12px 0;border-top:1px solid #e5e7eb;margin-top:8px;">
           <span id="audit-selected-count" style="font-size:13px;color:#374151;margin-right:16px;"></span>
           <button id="review-btn"

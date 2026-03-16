@@ -8,9 +8,12 @@ require([
 
     var tokens   = mvc.Components.getInstance("default");
     var selected = {};
+    var PAGE_SIZE = CONFIG.ui.pageSize || 10;          // rows per page
+    var currentPage = 1;
+    var allRows = [];
 
     var COLS = [
-        { key: "date_of_job",                  label: "Date of Job" },
+        { key: "date_of_job",            label: "Date of Job" },
         { key: "hostname",              label: "Host" },
         { key: "department",            label: "Department" },
         { key: "additional_users",      label: "Additional Users" },
@@ -56,7 +59,60 @@ require([
         }
     }
 
-    function renderTable(rows) {
+    // ── Pagination helpers ──────────────────────────────────────────────────
+    function totalPages() {
+        return Math.max(1, Math.ceil(allRows.length / PAGE_SIZE));
+    }
+
+    function renderPager() {
+        var pager = document.getElementById("audit-pager");
+        if (!pager) return;
+
+        var total = totalPages();
+        var start = (currentPage - 1) * PAGE_SIZE + 1;
+        var end   = Math.min(currentPage * PAGE_SIZE, allRows.length);
+
+        var html = "";
+        html += "<span class='pager-info'>" + start + "–" + end + " of " + allRows.length + "</span>";
+        html += "<button class='pager-btn' id='pager-first' " + (currentPage === 1 ? "disabled" : "") + ">«</button>";
+        html += "<button class='pager-btn' id='pager-prev'  " + (currentPage === 1 ? "disabled" : "") + ">‹</button>";
+
+        // window of up to 5 page numbers
+        var winStart = Math.max(1, currentPage - 2);
+        var winEnd   = Math.min(total, winStart + 4);
+        winStart     = Math.max(1, winEnd - 4);
+
+        for (var p = winStart; p <= winEnd; p++) {
+            html += "<button class='pager-btn pager-num" + (p === currentPage ? " pager-active" : "") + "' data-page='" + p + "'>" + p + "</button>";
+        }
+
+        html += "<button class='pager-btn' id='pager-next' " + (currentPage === total ? "disabled" : "") + ">›</button>";
+        html += "<button class='pager-btn' id='pager-last' " + (currentPage === total ? "disabled" : "") + ">»</button>";
+        pager.innerHTML = html;
+
+        pager.addEventListener("click", function(e) {
+            var btn = e.target.closest(".pager-btn");
+            if (!btn || btn.disabled) return;
+            var id = btn.id;
+            var pg = parseInt(btn.getAttribute("data-page"), 10);
+            if (id === "pager-first") currentPage = 1;
+            else if (id === "pager-prev")  currentPage = Math.max(1, currentPage - 1);
+            else if (id === "pager-next")  currentPage = Math.min(totalPages(), currentPage + 1);
+            else if (id === "pager-last")  currentPage = totalPages();
+            else if (!isNaN(pg))           currentPage = pg;
+            renderPage();
+        });
+    }
+
+    function renderPage() {
+        var start = (currentPage - 1) * PAGE_SIZE;
+        var pageRows = allRows.slice(start, start + PAGE_SIZE);
+        renderTableRows(pageRows);
+        renderPager();
+    }
+
+    // ── Table body renderer (current page rows only) ────────────────────────
+    function renderTableRows(rows) {
         var container = document.getElementById("audit-table-container");
         if (!container) return;
 
@@ -72,12 +128,10 @@ require([
         html += "</tr></thead><tbody>";
 
         rows.forEach(function(row) {
-            var host       = row["hostname"] || "";
-
+            var host    = row["hostname"] || "";
             var jobDate = row["date_of_job"] || "";
-            // Create a unique key to identify this specific row
             var uniqueKey = host + "|" + jobDate;
-            
+
             var isReviewed = row["reviewed_by_info"] && row["reviewed_by_info"] !== "-";
             var checked    = selected[uniqueKey] ? "checked" : "";
             var rowClass   = isReviewed ? "reviewed" : "";
@@ -96,7 +150,6 @@ require([
         // Event delegation — one listener on the container handles all checkboxes
         container.addEventListener("change", function(e) {
             if (e.target && e.target.classList.contains("row-chk")) {
-                // Create the unique key from both data attributes
                 var key = e.target.getAttribute("data-host") + "|" + e.target.getAttribute("data-date");
                 selected[key] = e.target.checked;
                 updateActionBar();
@@ -112,6 +165,13 @@ require([
         });
 
         updateActionBar();
+    }
+
+    // kept for backward-compat; stores rows then renders page 1
+    function renderTable(rows) {
+        allRows     = rows || [];
+        currentPage = 1;
+        renderPage();
     }
 
     // ── Search ──────────────────────────────────────────────────────────────
@@ -157,8 +217,7 @@ require([
             '| eval review_date_info = coalesce(review_date_info, "-")',
             '| dedup hostname date_of_job',
             '| sort department hostname -date_of_job',
-            // Latest date_of_job only:
-            '| dedup hostname',
+            '| dedup hostname',                                  // keep only latest job per host
             '| table hostname date_of_job department additional_users missing_users locked_accounts expired_accounts interactive_accounts baseline_accounts reviewed_by_info review_date_info'
         ].join(" ");
 
@@ -172,7 +231,6 @@ require([
 
         sm.on("search:done", function() {
             var results = sm.data("results", { 
-                count: CONFIG.ui.maxResults, 
                 offset: 0 
             });
             results.on("data", function() {
