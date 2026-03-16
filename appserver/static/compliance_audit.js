@@ -181,11 +181,13 @@ require([
         showFeedback("Audit data loaded", "success");
         // if (status) status.innerHTML = "<span class='spinner'></span> Loading...";
 
-        var dept = tokens.get("filter_dept") || "*";
-        var host = tokens.get("filter_host") || "*";
+        var dept       = tokens.get("filter_dept") || "*";
+        var host       = tokens.get("filter_host") || "*";
+        var reviewType = tokens.get("review_type") || "user";
 
        var query = [
             'index=' + CONFIG.indexes.auditIndex + ' sourcetype="' + CONFIG.sourcetypes.auditLogs + '"',
+            '| spath input=_raw path=compliance_review_type output=compliance_review_type',
             '| spath input=_raw path=hostname               output=hostname',
             '| spath input=_raw path=time                   output=date_of_job',
             '| spath input=_raw path=department             output=department',
@@ -195,6 +197,7 @@ require([
             '| spath input=_raw path=expired_accounts{}     output=expired_accounts_mv',
             '| spath input=_raw path=interactive_accounts{} output=interactive_accounts_mv',
             '| spath input=_raw path=baseline_accounts{}    output=baseline_accounts_mv',
+            '| where compliance_review_type="' + reviewType + '"',
             '| where (hostname="' + host + '" OR "' + host + '"="*") AND (department="' + dept + '" OR "' + dept + '"="*")',
             '| eval additional_users     = if(isnull(mvjoin(additional_users_mv, ", ")) OR mvjoin(additional_users_mv, ", ")="", "-", mvjoin(additional_users_mv, ", "))',
             '| eval missing_users        = if(isnull(mvjoin(missing_users_mv,    ", ")) OR mvjoin(missing_users_mv,    ", ")="", "-", mvjoin(missing_users_mv,    ", "))',
@@ -308,7 +311,7 @@ require([
 }
 
     runAuditSearch();
-    tokens.on("change:filter_dept change:filter_host", function() {
+    tokens.on("change:filter_dept change:filter_host change:review_type", function() {
         runAuditSearch();
     });
 

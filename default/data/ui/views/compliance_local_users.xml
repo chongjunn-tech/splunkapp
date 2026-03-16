@@ -1,17 +1,32 @@
 <form version="1.1" script="compliance_audit.js" stylesheet="compliance_audit.css">
-  <label>Compliance - Users Review</label>
-  <description>
-  Annual review of local user account compliance. 
-  Each hostname reflects its latest audit job. 
-  Account baselines are maintained by the team in Azure DevOps.
-   </description>
+  <label>Compliance - Local User &amp; Group Review</label>
+  <description>Annual local user and group account compliance review. Each hostname reflects its latest audit job. Baselines are managed in Azure DevOps by the team.</description>
 
   <fieldset submitButton="true" autoRun="true">
-    <input type="dropdown" token="service_catalog" searchWhenChanged="false">
+    <input type="dropdown" token="service_catalog" searchWhenChanged="true">
       <label>Service Catalog</label>
       <default>Compliance - Local Users Review</default>
       <choice value="Compliance - Local Users Review">Compliance - Local Users Review</choice>
+      <choice value="Compliance - Local Groups Review">Compliance - Local Groups Review</choice>
+
+      <!-- Map service catalog selection to compliance_review_type value used in queries -->
+      <change>
+        <condition value="Compliance - Local Users Review">
+          <set token="review_type">user</set>
+          <set token="review_type_label">Local Users Review</set>
+        </condition>
+        <condition value="Compliance - Local Groups Review">
+          <set token="review_type">group</set>
+          <set token="review_type_label">Local Groups Review</set>
+        </condition>
+        <!-- Reset filters when review type changes -->
+        <set token="filter_dept">*</set>
+        <set token="form.filter_dept">*</set>
+        <set token="filter_host">*</set>
+        <set token="form.filter_host">*</set>
+      </change>
     </input>
+
     <input type="dropdown" token="filter_dept" searchWhenChanged="true">
       <label>Department</label>
       <default>*</default>
@@ -19,7 +34,9 @@
       <search>
         <query>
           index=automation_local_user_group_audit sourcetype="custom:automation_local_user_group_audit:logs"
-          | spath input=_raw path=department output=department
+          | spath input=_raw path=compliance_review_type output=compliance_review_type
+          | spath input=_raw path=department             output=department
+          | where compliance_review_type="$review_type$"
           | stats count by department | fields department
         </query>
       </search>
@@ -31,7 +48,6 @@
         <set token="filter_host">*</set>
         <set token="form.filter_host">*</set>
       </change>
-
     </input>
 
     <input type="dropdown" token="filter_host" searchWhenChanged="true" depends="$filter_dept$">
@@ -41,9 +57,11 @@
       <search>
         <query>
           index=automation_local_user_group_audit sourcetype="custom:automation_local_user_group_audit:logs"
-          | spath input=_raw path=department output=department
-          | spath input=_raw path=hostname output=hostname
-          | where (department="$filter_dept$" OR "$filter_dept$"="*")
+          | spath input=_raw path=compliance_review_type output=compliance_review_type
+          | spath input=_raw path=department             output=department
+          | spath input=_raw path=hostname               output=hostname
+          | where compliance_review_type="$review_type$"
+          AND (department="$filter_dept$" OR "$filter_dept$"="*")
           | stats count by hostname | fields hostname
         </query>
       </search>
@@ -55,7 +73,7 @@
   <!-- AUDIT TABLE — rendered by JS for checkbox support -->
   <row>
     <panel>
-      <title>Compliance - Local Users Review</title>
+      <title>Compliance - $review_type_label$</title>
       <html>
         <div id="audit-search-status" style="padding:8px;color:#6b7280;font-size:12px;">Loading...</div>
         <div id="audit-table-container"></div>
