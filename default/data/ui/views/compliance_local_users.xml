@@ -1,6 +1,10 @@
 <form version="1.1" script="compliance_audit.js" stylesheet="compliance_audit.css">
-  <label>Compliance - Local Users Review</label>
-  <description>Annual local user account compliance review. Baselines managed in GitLab by team.</description>
+  <label>Compliance - Users Review</label>
+  <description>
+  Annual review of local user account compliance. 
+  Each hostname reflects its latest audit job. 
+  Account baselines are maintained by the team in Azure DevOps.
+   </description>
 
   <fieldset submitButton="true" autoRun="true">
     <input type="dropdown" token="service_catalog" searchWhenChanged="false">

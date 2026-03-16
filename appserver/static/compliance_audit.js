@@ -157,6 +157,8 @@ require([
             '| eval review_date_info = coalesce(review_date_info, "-")',
             '| dedup hostname date_of_job',
             '| sort department hostname -date_of_job',
+            // Latest date_of_job only:
+            '| dedup hostname',
             '| table hostname date_of_job department additional_users missing_users locked_accounts expired_accounts interactive_accounts baseline_accounts reviewed_by_info review_date_info'
         ].join(" ");
 
