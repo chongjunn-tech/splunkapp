@@ -6,8 +6,9 @@ require([
     "splunkjs/mvc/simplexml/ready!"
 ], function(mvc, SearchManager,CONFIG) {
 
-    var tokens   = mvc.Components.getInstance("default");
-    var selected = {};
+    var tokens       = mvc.Components.getInstance("default");
+    var selected     = {};
+    var selectedMeta = {};  // key -> { compliance_review_type }
     var PAGE_SIZE = CONFIG.ui.pageSize || 10;          // rows per page
     var currentPage = 1;
     var allRows = [];
@@ -129,16 +130,17 @@ require([
         html += "</tr></thead><tbody>";
 
         rows.forEach(function(row) {
-            var host    = row["hostname"] || "";
-            var jobDate = row["date_of_job"] || "";
-            var uniqueKey = host + "|" + jobDate;
+            var host       = row["hostname"] || "";
+            var jobDate    = row["date_of_job"] || "";
+            var reviewType = row["compliance_review_type"] || "";
+            var uniqueKey  = host + "|" + jobDate;
 
             var isReviewed = row["reviewed_by_info"] && row["reviewed_by_info"] !== "-";
             var checked    = selected[uniqueKey] ? "checked" : "";
             var rowClass   = isReviewed ? "reviewed" : "";
 
             html += "<tr class='" + rowClass + "'>";
-            html += "<td><input type='checkbox' class='row-chk' data-host='" + escHtml(host) + "' data-date='" + escHtml(jobDate) + "' " + checked + "></td>";
+            html += "<td><input type='checkbox' class='row-chk' data-host='" + escHtml(host) + "' data-date='" + escHtml(jobDate) + "' data-review-type='" + escHtml(reviewType) + "' " + checked + "></td>";
             COLS.forEach(function(c) {
                 html += "<td>" + escHtml(row[c.key] || "-") + "</td>";
             });
@@ -153,6 +155,7 @@ require([
             if (e.target && e.target.classList.contains("row-chk")) {
                 var key = e.target.getAttribute("data-host") + "|" + e.target.getAttribute("data-date");
                 selected[key] = e.target.checked;
+                selectedMeta[key] = { compliance_review_type: e.target.getAttribute("data-review-type") };
                 updateActionBar();
             }
             if (e.target && e.target.id === "chk-all") {
@@ -160,6 +163,7 @@ require([
                     var key = b.getAttribute("data-host") + "|" + b.getAttribute("data-date");
                     b.checked = e.target.checked;
                     selected[key] = e.target.checked;
+                    selectedMeta[key] = { compliance_review_type: b.getAttribute("data-review-type") };
                 });
                 updateActionBar();
             }
@@ -189,7 +193,6 @@ require([
 
        var query = [
             'index=' + CONFIG.indexes.auditIndex + ' sourcetype="' + CONFIG.sourcetypes.auditLogs + '"',
-            '| spath input=_raw path=compliance_review_type output=compliance_review_type',
             '| spath input=_raw path=hostname               output=hostname',
             '| spath input=_raw path=device                 output=device',
             '| spath input=_raw path=compliance_review_type output=compliance_review_type',
@@ -209,22 +212,22 @@ require([
             '| eval interactive_accounts = if(isnull(mvjoin(interactive_accounts_mv,", ")) OR mvjoin(interactive_accounts_mv,", ")="", "-", mvjoin(interactive_accounts_mv,", "))',
             '| eval baseline_accounts    = if(isnull(mvjoin(baseline_accounts_mv, ", ")) OR mvjoin(baseline_accounts_mv, ", ")="", "-", mvjoin(baseline_accounts_mv, ", "))',
             // FIXED: Added space before bracket and corrected subquery spath
-            '| join type=left hostname date_of_job [',
+            '| join type=left hostname date_of_job compliance_review_type [',
             '    search index=automation_local_user_group_audit sourcetype="user_audit_signoff" event_type="audit_signoff"',
-            '    | spath input=_raw path=hostname    output=hostname',
-            '    | spath input=_raw path=date_of_job output=date_of_job', 
+            '    | eval date_of_job          = date_of_job',
+            '    | eval compliance_review_type = compliance_review_type',
             '    | sort - _time',
-            '    | dedup hostname date_of_job',
+            '    | dedup hostname date_of_job compliance_review_type',
             '    | eval reviewed_by_info = reviewed_by',
             '    | eval review_date_info = strftime(_time, "%d/%m/%Y %H:%M")',
-            '    | table hostname date_of_job reviewed_by_info review_date_info',
+            '    | table hostname date_of_job compliance_review_type reviewed_by_info review_date_info',
             '  ]',
             '| eval reviewed_by_info = coalesce(reviewed_by_info, "-")',
             '| eval review_date_info = coalesce(review_date_info, "-")',
             '| dedup hostname date_of_job',
             '| sort department hostname -date_of_job',
             '| dedup hostname',                                  // keep only latest job per host
-            '| table hostname device date_of_job department additional_users missing_users locked_accounts expired_accounts interactive_accounts baseline_accounts reviewed_by_info review_date_info'
+            '| table hostname device compliance_review_type date_of_job department additional_users missing_users locked_accounts expired_accounts interactive_accounts baseline_accounts reviewed_by_info review_date_info'
         ].join(" ");
 
         var sm = new SearchManager({
@@ -348,9 +351,10 @@ require([
 
             var now = new Date();
             var promises = keys.map(function(key) {
-                var parts = key.split("|");
-                var host = parts[0];
-                var jobDate = parts[1];
+                var parts    = key.split("|");
+                var host     = parts[0];
+                var jobDate  = parts[1];
+                var rowReviewType = (selectedMeta[key] && selectedMeta[key].compliance_review_type) || reviewType;
 
                 return fetch(CONFIG.splunk.hecUrl, {
                     method: "POST",
@@ -361,15 +365,15 @@ require([
                         sourcetype: "user_audit_signoff",
                         index:      "automation_local_user_group_audit",
                         event: {
-                            event_type:   "audit_signoff",
-                            hostname:     host,
-                            date_of_job:  jobDate,
-                            reviewed_by:  reviewer,
-                            reviewed_at:  now.toISOString(),
-                            audit_year:   String(now.getFullYear()),
-                            remarks:      "Reviewed via dashboard by " + reviewer,
-                            audit_source: "compliance_audit_app",
-                            
+                            event_type:             "audit_signoff",
+                            hostname:               host,
+                            date_of_job:            jobDate,
+                            compliance_review_type: rowReviewType,
+                            reviewed_by:            reviewer,
+                            reviewed_at:            now.toISOString(),
+                            audit_year:             String(now.getFullYear()),
+                            remarks:                "Reviewed via dashboard by " + reviewer,
+                            audit_source:           "compliance_audit_app",
                         }
                     })
                 }).then(function(r) { return r.json(); });
@@ -389,7 +393,8 @@ require([
                     // Remove duplicates for the display message
                     var uniqueNames = Array.from(new Set(hostNames));
 
-                    selected = {};
+                    selected     = {};
+                    selectedMeta = {};
                     updateActionBar();
 
                     showFeedback(
