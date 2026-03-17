@@ -35,6 +35,7 @@
       </change>
     </input>
 
+    <!-- Device -->
     <input type="dropdown" token="filter_device" searchWhenChanged="true">
       <label>Device Type</label>
       <default>*</default>
@@ -59,6 +60,8 @@
       </change>
     </input>
 
+
+    <!-- Department -->
     <input type="dropdown" token="filter_dept" searchWhenChanged="true">
       <label>Department</label>
       <default>*</default>
@@ -76,11 +79,36 @@
       <fieldForValue>department</fieldForValue>
       <!-- Reset hostname when department changes -->
       <change>
+        <set token="filter_group">*</set>
+        <set token="form.filter_group">*</set>
         <set token="filter_host">*</set>
         <set token="form.filter_host">*</set>
       </change>
     </input>
 
+    <!-- group -->
+
+      <input type="dropdown" token="filter_group" searchWhenChanged="true">
+      <label>Group</label>
+      <default>*</default>
+      <choice value="*">-- All Groups --</choice>
+      <search>
+        <query>
+          index=automation_local_user_group_audit sourcetype="custom:automation_local_user_group_audit:logs"
+          | spath input=_raw path=compliance_review_type output=compliance_review_type
+          | spath input=_raw path=group output=group
+          | where compliance_review_type="$service_catalog$" AND (device="$filter_device$" OR "$filter_device$"="*") AND (department="$filter_dept$" OR "$filter_dept$"="*")
+          | stats count by group | fields group
+        </query>
+      </search>
+      <fieldForLabel>group</fieldForLabel>
+      <fieldForValue>group</fieldForValue>
+      <change>
+        <set token="filter_host">*</set>
+        <set token="form.filter_host">*</set>
+      </change>
+    </input>
+    
     <input type="dropdown" token="filter_host" searchWhenChanged="true" depends="$filter_dept$">
       <label>Hostname</label>
       <default>*</default>
@@ -92,7 +120,7 @@
           | spath input=_raw path=device output=device
           | spath input=_raw path=department output=department
           | spath input=_raw path=hostname output=hostname
-          | where compliance_review_type="$service_catalog$" AND (device="$filter_device$" OR "$filter_device$"="*") AND (department="$filter_dept$" OR "$filter_dept$"="*")
+          | where compliance_review_type="$service_catalog$" AND (device="$filter_device$" OR "$filter_device$"="*") AND (department="$filter_dept$" OR "$filter_dept$"="*") AND (group="$filter_group$" OR "$filter_group$"="*")
           | stats count by hostname | fields hostname
         </query>
       </search>
@@ -121,30 +149,6 @@
           <span id="review-feedback" style="margin-left:16px;font-size:12px;"></span>
         </div>
       </html>
-    </panel>
-  </row>
-
-  <!-- SIGN-OFF HISTORY -->
-  <row>
-    <panel>
-      <title>Sign-off History</title>
-      <table>
-        <search>
-          <query>
-            index=automation_local_user_group_audit sourcetype="user_audit_signoff"
-            event_type="audit_signoff"
-            | eval "Signed Off At" = strftime(_time, "%d %b %Y %H:%M:%S")
-            | table "Signed Off At" hostname reviewed_by remarks
-            | rename hostname    as "Host"
-                     reviewed_by as "Reviewed By"
-                     remarks     as "Remarks"
-            | sort -"Signed Off At"
-          </query>
-          <refresh>30s</refresh>
-        </search>
-        <option name="drilldown">none</option>
-        <option name="wrap">true</option>
-      </table>
     </panel>
   </row>
 

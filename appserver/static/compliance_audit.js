@@ -18,6 +18,7 @@ require([
         { key: "hostname",              label: "Host" },
         { key: "device",                label: "Device" },
         { key: "department",            label: "Department" },
+        { key: "group",                 label: "Group" },
         { key: "additional_users",      label: "Additional Users" },
         { key: "missing_users",         label: "Missing Users" },
         { key: "locked_accounts",       label: "Locked" },
@@ -190,6 +191,7 @@ require([
         var dept       = tokens.get("filter_dept")     || "*";
         var host       = tokens.get("filter_host")     || "*";
         var device     = tokens.get("filter_device")   || "*";
+        var group     = tokens.get("filter_group")   || "*";
 
        var query = [
             'index=' + CONFIG.indexes.auditIndex + ' sourcetype="' + CONFIG.sourcetypes.auditLogs + '"',
@@ -204,7 +206,7 @@ require([
             '| spath input=_raw path=expired_accounts{}     output=expired_accounts_mv',
             '| spath input=_raw path=interactive_accounts{} output=interactive_accounts_mv',
             '| spath input=_raw path=baseline_accounts{}    output=baseline_accounts_mv',
-            '| where compliance_review_type="' + reviewType + '" AND (device="' + device + '" OR "' + device + '"="*") AND (hostname="' + host + '" OR "' + host + '"="*") AND (department="' + dept + '" OR "' + dept + '"="*")',
+            '| where compliance_review_type="' + reviewType + '" AND (device="' + device + '" OR "' + device + '"="*") AND (hostname="' + host + '" OR "' + host + '"="*") AND (department="' + dept + '" OR "' + dept + '"="*") AND (group="' + group + '" OR "' + group + '"="*")',
             '| eval additional_users     = if(isnull(mvjoin(additional_users_mv, ", ")) OR mvjoin(additional_users_mv, ", ")="", "-", mvjoin(additional_users_mv, ", "))',
             '| eval missing_users        = if(isnull(mvjoin(missing_users_mv,    ", ")) OR mvjoin(missing_users_mv,    ", ")="", "-", mvjoin(missing_users_mv,    ", "))',
             '| eval locked_accounts      = if(isnull(mvjoin(locked_accounts_mv,  ", ")) OR mvjoin(locked_accounts_mv,  ", ")="", "-", mvjoin(locked_accounts_mv,  ", "))',
@@ -227,7 +229,7 @@ require([
             '| dedup hostname date_of_job',
             '| sort department hostname -date_of_job',
             '| dedup hostname',                                  // keep only latest job per host
-            '| table hostname device compliance_review_type date_of_job department additional_users missing_users locked_accounts expired_accounts interactive_accounts baseline_accounts reviewed_by_info review_date_info'
+            '| table hostname device compliance_review_type date_of_job department group additional_users missing_users locked_accounts expired_accounts interactive_accounts baseline_accounts reviewed_by_info review_date_info'
         ].join(" ");
 
         var sm = new SearchManager({
@@ -317,7 +319,7 @@ require([
 }
 
     runAuditSearch();
-    tokens.on("change:service_catalog change:filter_device change:filter_dept change:filter_host", function() {
+    tokens.on("change:service_catalog change:filter_device change:filter_dept change:filter_group change:filter_host", function() {
         runAuditSearch();
     });
 
