@@ -189,6 +189,7 @@ require([
 
        var query = [
             'index=' + CONFIG.indexes.auditIndex + ' sourcetype="' + CONFIG.sourcetypes.auditLogs + '"',
+            '| spath input=_raw path=compliance_review_type output=compliance_review_type',
             '| spath input=_raw path=hostname               output=hostname',
             '| spath input=_raw path=device                 output=device',
             '| spath input=_raw path=compliance_review_type output=compliance_review_type',

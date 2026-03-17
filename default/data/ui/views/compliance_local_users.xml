@@ -1,10 +1,6 @@
 <form version="1.1" script="compliance_audit.js" stylesheet="compliance_audit.css">
-  <label>Compliance - Users Review</label>
-  <description>
-  Annual review of local user account compliance. 
-  Each hostname reflects its latest audit job. 
-  Account baselines are maintained by the team in Azure DevOps.
-   </description>
+  <label>Compliance - Local User &amp; Group Review</label>
+  <description>Annual local user and group account compliance review. Each hostname reflects its latest audit job. Baselines are managed in Azure DevOps by the team.</description>
 
   <fieldset submitButton="true" autoRun="true">
 
@@ -48,6 +44,7 @@
         <set token="form.filter_host">*</set>
       </change>
     </input>
+
 
     <input type="dropdown" token="filter_dept" searchWhenChanged="true">
       <label>Department</label>
@@ -95,7 +92,7 @@
   <!-- AUDIT TABLE — rendered by JS for checkbox support -->
   <row>
     <panel>
-      <title>Compliance - Local Users Review</title>
+      <title>Compliance - $review_type_label$</title>
       <html>
         <div id="audit-search-status" style="padding:8px;color:#6b7280;font-size:12px;">Loading...</div>
         <div id="audit-table-container"></div>
