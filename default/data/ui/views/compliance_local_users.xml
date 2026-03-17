@@ -1,6 +1,14 @@
 <form version="1.1" script="compliance_audit.js" stylesheet="compliance_audit.css">
-  <label>Compliance - Local User &amp; Group Review</label>
-  <description>Annual local user and group account compliance review. Each hostname reflects its latest audit job. Baselines are managed in Azure DevOps by the team.</description>
+  <label>Compliance - Local Users &amp; Group Review</label>
+  <description>
+  Annual review of local user account compliance. 
+  Each hostname reflects its latest audit job. 
+  Account baselines are maintained by the team in Azure DevOps.
+   </description>
+
+  <init>
+    <set token="review_type_label">Compliance - Local Users Review</set>
+  </init>
 
   <fieldset submitButton="true" autoRun="true">
 
@@ -12,6 +20,12 @@
       <choice value="group">Compliance - Local Group Review</choice>
       <!-- Reset all downstream filters when service catalog changes -->
       <change>
+        <condition value="user">
+          <set token="review_type_label">Compliance - Local Users Review</set>
+        </condition>
+        <condition value="group">
+          <set token="review_type_label">Compliance - Local Group Review</set>
+        </condition>
         <set token="filter_device">*</set>
         <set token="form.filter_device">*</set>
         <set token="filter_dept">*</set>
@@ -45,7 +59,6 @@
       </change>
     </input>
 
-
     <input type="dropdown" token="filter_dept" searchWhenChanged="true">
       <label>Department</label>
       <default>*</default>
@@ -55,7 +68,7 @@
           index=automation_local_user_group_audit sourcetype="custom:automation_local_user_group_audit:logs"
           | spath input=_raw path=compliance_review_type output=compliance_review_type
           | spath input=_raw path=department output=department
-          | where compliance_review_type="$service_catalog$"
+          | where compliance_review_type="$service_catalog$" AND (device="$filter_device$" OR "$filter_device$"="*")
           | stats count by department | fields department
         </query>
       </search>
@@ -92,7 +105,7 @@
   <!-- AUDIT TABLE — rendered by JS for checkbox support -->
   <row>
     <panel>
-      <title>Compliance - $review_type_label$</title>
+      <title>$review_type_label$</title>
       <html>
         <div id="audit-search-status" style="padding:8px;color:#6b7280;font-size:12px;">Loading...</div>
         <div id="audit-table-container"></div>
