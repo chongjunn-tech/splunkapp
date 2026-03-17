@@ -15,6 +15,7 @@ require([
     var COLS = [
         { key: "date_of_job",            label: "Date of Job" },
         { key: "hostname",              label: "Host" },
+        { key: "device",                label: "Device" },
         { key: "department",            label: "Department" },
         { key: "additional_users",      label: "Additional Users" },
         { key: "missing_users",         label: "Missing Users" },
@@ -181,12 +182,16 @@ require([
         showFeedback("Audit data loaded", "success");
         // if (status) status.innerHTML = "<span class='spinner'></span> Loading...";
 
-        var dept = tokens.get("filter_dept") || "*";
-        var host = tokens.get("filter_host") || "*";
+        var reviewType = tokens.get("service_catalog") || "user";
+        var dept       = tokens.get("filter_dept")     || "*";
+        var host       = tokens.get("filter_host")     || "*";
+        var device     = tokens.get("filter_device")   || "*";
 
        var query = [
             'index=' + CONFIG.indexes.auditIndex + ' sourcetype="' + CONFIG.sourcetypes.auditLogs + '"',
             '| spath input=_raw path=hostname               output=hostname',
+            '| spath input=_raw path=device                 output=device',
+            '| spath input=_raw path=compliance_review_type output=compliance_review_type',
             '| spath input=_raw path=time                   output=date_of_job',
             '| spath input=_raw path=department             output=department',
             '| spath input=_raw path=additional_users{}     output=additional_users_mv',
@@ -195,7 +200,7 @@ require([
             '| spath input=_raw path=expired_accounts{}     output=expired_accounts_mv',
             '| spath input=_raw path=interactive_accounts{} output=interactive_accounts_mv',
             '| spath input=_raw path=baseline_accounts{}    output=baseline_accounts_mv',
-            '| where (hostname="' + host + '" OR "' + host + '"="*") AND (department="' + dept + '" OR "' + dept + '"="*")',
+            '| where compliance_review_type="' + reviewType + '" AND (device="' + device + '" OR "' + device + '"="*") AND (hostname="' + host + '" OR "' + host + '"="*") AND (department="' + dept + '" OR "' + dept + '"="*")',
             '| eval additional_users     = if(isnull(mvjoin(additional_users_mv, ", ")) OR mvjoin(additional_users_mv, ", ")="", "-", mvjoin(additional_users_mv, ", "))',
             '| eval missing_users        = if(isnull(mvjoin(missing_users_mv,    ", ")) OR mvjoin(missing_users_mv,    ", ")="", "-", mvjoin(missing_users_mv,    ", "))',
             '| eval locked_accounts      = if(isnull(mvjoin(locked_accounts_mv,  ", ")) OR mvjoin(locked_accounts_mv,  ", ")="", "-", mvjoin(locked_accounts_mv,  ", "))',
@@ -218,7 +223,7 @@ require([
             '| dedup hostname date_of_job',
             '| sort department hostname -date_of_job',
             '| dedup hostname',                                  // keep only latest job per host
-            '| table hostname date_of_job department additional_users missing_users locked_accounts expired_accounts interactive_accounts baseline_accounts reviewed_by_info review_date_info'
+            '| table hostname device date_of_job department additional_users missing_users locked_accounts expired_accounts interactive_accounts baseline_accounts reviewed_by_info review_date_info'
         ].join(" ");
 
         var sm = new SearchManager({
@@ -308,7 +313,7 @@ require([
 }
 
     runAuditSearch();
-    tokens.on("change:filter_dept change:filter_host", function() {
+    tokens.on("change:service_catalog change:filter_device change:filter_dept change:filter_host", function() {
         runAuditSearch();
     });
 

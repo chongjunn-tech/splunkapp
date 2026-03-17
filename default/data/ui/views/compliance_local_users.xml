@@ -7,11 +7,48 @@
    </description>
 
   <fieldset submitButton="true" autoRun="true">
-    <input type="dropdown" token="service_catalog" searchWhenChanged="false">
+
+    <input type="dropdown" token="service_catalog" searchWhenChanged="true">
       <label>Service Catalog</label>
-      <default>Compliance - Local Users Review</default>
-      <choice value="Compliance - Local Users Review">Compliance - Local Users Review</choice>
+      <default>user</default>
+      <initialValue>user</initialValue>
+      <choice value="user">Compliance - Local Users Review</choice>
+      <choice value="group">Compliance - Local Group Review</choice>
+      <!-- Reset all downstream filters when service catalog changes -->
+      <change>
+        <set token="filter_device">*</set>
+        <set token="form.filter_device">*</set>
+        <set token="filter_dept">*</set>
+        <set token="form.filter_dept">*</set>
+        <set token="filter_host">*</set>
+        <set token="form.filter_host">*</set>
+      </change>
     </input>
+
+    <input type="dropdown" token="filter_device" searchWhenChanged="true">
+      <label>Device Type</label>
+      <default>*</default>
+      <choice value="*">-- All Devices --</choice>
+      <search>
+        <query>
+          index=automation_local_user_group_audit sourcetype="custom:automation_local_user_group_audit:logs"
+          | spath input=_raw path=compliance_review_type output=compliance_review_type
+          | spath input=_raw path=device output=device
+          | where compliance_review_type="$service_catalog$"
+          | stats count by device | fields device
+        </query>
+      </search>
+      <fieldForLabel>device</fieldForLabel>
+      <fieldForValue>device</fieldForValue>
+      <!-- Reset department and hostname when device changes -->
+      <change>
+        <set token="filter_dept">*</set>
+        <set token="form.filter_dept">*</set>
+        <set token="filter_host">*</set>
+        <set token="form.filter_host">*</set>
+      </change>
+    </input>
+
     <input type="dropdown" token="filter_dept" searchWhenChanged="true">
       <label>Department</label>
       <default>*</default>
@@ -19,19 +56,19 @@
       <search>
         <query>
           index=automation_local_user_group_audit sourcetype="custom:automation_local_user_group_audit:logs"
+          | spath input=_raw path=compliance_review_type output=compliance_review_type
           | spath input=_raw path=department output=department
+          | where compliance_review_type="$service_catalog$"
           | stats count by department | fields department
         </query>
       </search>
       <fieldForLabel>department</fieldForLabel>
       <fieldForValue>department</fieldForValue>
-
       <!-- Reset hostname when department changes -->
       <change>
         <set token="filter_host">*</set>
         <set token="form.filter_host">*</set>
       </change>
-
     </input>
 
     <input type="dropdown" token="filter_host" searchWhenChanged="true" depends="$filter_dept$">
@@ -41,15 +78,18 @@
       <search>
         <query>
           index=automation_local_user_group_audit sourcetype="custom:automation_local_user_group_audit:logs"
+          | spath input=_raw path=compliance_review_type output=compliance_review_type
+          | spath input=_raw path=device output=device
           | spath input=_raw path=department output=department
           | spath input=_raw path=hostname output=hostname
-          | where (department="$filter_dept$" OR "$filter_dept$"="*")
+          | where compliance_review_type="$service_catalog$" AND (device="$filter_device$" OR "$filter_device$"="*") AND (department="$filter_dept$" OR "$filter_dept$"="*")
           | stats count by hostname | fields hostname
         </query>
       </search>
       <fieldForLabel>hostname</fieldForLabel>
       <fieldForValue>hostname</fieldForValue>
     </input>
+
   </fieldset>
 
   <!-- AUDIT TABLE — rendered by JS for checkbox support -->
