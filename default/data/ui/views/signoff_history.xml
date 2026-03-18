@@ -58,22 +58,6 @@
       </change>
     </input>
 
-    <input type="dropdown" token="filter_group" searchWhenChanged="true">
-      <label>Group</label>
-      <choice value="*">-- All Groups --</choice>
-      <default>*</default>
-      <search>
-        <query>
-          index=automation_local_user_group_audit sourcetype="user_audit_signoff"
-          event_type="audit_signoff"
-          | where compliance_review_type="$service_catalog$"
-          AND (device="$filter_device$" OR "$filter_device$"="*")
-          | stats count by group | fields group
-        </query>
-      </search>
-      <fieldForLabel>group</fieldForLabel>
-      <fieldForValue>group</fieldForValue>
-    </input>
 
     <input type="dropdown" token="filter_dept" searchWhenChanged="true">
       <label>Department</label>
@@ -92,6 +76,23 @@
       <fieldForValue>department</fieldForValue>
     </input>
 
+    <input type="dropdown" token="filter_group" searchWhenChanged="true">
+      <label>Group</label>
+      <choice value="*">-- All Groups --</choice>
+      <default>*</default>
+      <search>
+        <query>
+          index=automation_local_user_group_audit sourcetype="user_audit_signoff"
+          event_type="audit_signoff"
+          | where compliance_review_type="$service_catalog$"
+          AND (device="$filter_device$" OR "$filter_device$"="*")
+          | stats count by group | fields group
+        </query>
+      </search>
+      <fieldForLabel>group</fieldForLabel>
+      <fieldForValue>group</fieldForValue>
+    </input>
+    
     <input type="dropdown" token="filter_host" searchWhenChanged="true">
       <label>Hostname</label>
       <choice value="*">All Hosts</choice>
