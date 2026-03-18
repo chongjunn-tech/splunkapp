@@ -2,21 +2,92 @@
   <label>Sign off History</label>
   <description>Historical sign-off records for Compliance Review.</description>
 
+  <init>
+    <set token="review_type_label">Compliance - Local Users Review</set>
+  </init>
+
   <fieldset submitButton="false" autoRun="true">
+
+    <input type="dropdown" token="service_catalog" searchWhenChanged="true">
+      <label>Service Catalog</label>
+      <default>user</default>
+      <initialValue>user</initialValue>
+      <choice value="user">Compliance - Local Users Review</choice>
+      <choice value="group">Compliance - Local Group Review</choice>
+      <change>
+        <condition value="user">
+          <set token="review_type_label">Compliance - Local Users Review</set>
+        </condition>
+        <condition value="group">
+          <set token="review_type_label">Compliance - Local Group Review</set>
+        </condition>
+        <set token="filter_device">*</set>
+        <set token="form.filter_device">*</set>
+        <set token="filter_group">*</set>
+        <set token="form.filter_group">*</set>
+        <set token="filter_dept">*</set>
+        <set token="form.filter_dept">*</set>
+        <set token="filter_host">*</set>
+        <set token="form.filter_host">*</set>
+        <set token="filter_reviewer">*</set>
+        <set token="form.filter_reviewer">*</set>
+      </change>
+    </input>
+
+    <input type="dropdown" token="filter_device" searchWhenChanged="true">
+      <label>Device Type</label>
+      <choice value="*">-- All Devices --</choice>
+      <default>*</default>
+      <search>
+        <query>
+          index=automation_local_user_group_audit sourcetype="user_audit_signoff"
+          event_type="audit_signoff"
+          | where compliance_review_type="$service_catalog$"
+          | stats count by device | fields device
+        </query>
+      </search>
+      <fieldForLabel>device</fieldForLabel>
+      <fieldForValue>device</fieldForValue>
+      <change>
+        <set token="filter_group">*</set>
+        <set token="form.filter_group">*</set>
+        <set token="filter_dept">*</set>
+        <set token="form.filter_dept">*</set>
+        <set token="filter_host">*</set>
+        <set token="form.filter_host">*</set>
+      </change>
+    </input>
+
+    <input type="dropdown" token="filter_group" searchWhenChanged="true">
+      <label>Group</label>
+      <choice value="*">-- All Groups --</choice>
+      <default>*</default>
+      <search>
+        <query>
+          index=automation_local_user_group_audit sourcetype="user_audit_signoff"
+          event_type="audit_signoff"
+          | where compliance_review_type="$service_catalog$"
+          AND (device="$filter_device$" OR "$filter_device$"="*")
+          | stats count by group | fields group
+        </query>
+      </search>
+      <fieldForLabel>group</fieldForLabel>
+      <fieldForValue>group</fieldForValue>
+    </input>
 
     <input type="dropdown" token="filter_dept" searchWhenChanged="true">
       <label>Department</label>
       <choice value="*">All Departments</choice>
       <default>*</default>
-
       <search>
         <query>
-          index=automation_local_user_group_audit sourcetype="custom:automation_local_user_group_audit:logs"
-          | spath input=_raw path=department output=department
+          index=automation_local_user_group_audit sourcetype="user_audit_signoff"
+          event_type="audit_signoff"
+          | where compliance_review_type="$service_catalog$"
+          AND (device="$filter_device$" OR "$filter_device$"="*")
           | stats count by department | fields department
         </query>
       </search>
-
       <fieldForLabel>department</fieldForLabel>
       <fieldForValue>department</fieldForValue>
     </input>
@@ -25,15 +96,16 @@
       <label>Hostname</label>
       <choice value="*">All Hosts</choice>
       <default>*</default>
-
       <search>
         <query>
           index=automation_local_user_group_audit sourcetype="user_audit_signoff"
-          | stats count by hostname
-          | fields hostname
+          event_type="audit_signoff"
+          | where compliance_review_type="$service_catalog$"
+          AND (device="$filter_device$" OR "$filter_device$"="*")
+          AND (department="$filter_dept$" OR "$filter_dept$"="*")
+          | stats count by hostname | fields hostname
         </query>
       </search>
-
       <fieldForLabel>hostname</fieldForLabel>
       <fieldForValue>hostname</fieldForValue>
     </input>
@@ -42,15 +114,14 @@
       <label>Reviewer</label>
       <choice value="*">All Reviewers</choice>
       <default>*</default>
-
       <search>
         <query>
           index=automation_local_user_group_audit sourcetype="user_audit_signoff"
-          | stats count by reviewed_by
-          | fields reviewed_by
+          event_type="audit_signoff"
+          | where compliance_review_type="$service_catalog$"
+          | stats count by reviewed_by | fields reviewed_by
         </query>
       </search>
-
       <fieldForLabel>reviewed_by</fieldForLabel>
       <fieldForValue>reviewed_by</fieldForValue>
     </input>
@@ -59,7 +130,7 @@
 
   <row>
     <panel>
-      <title>Sign-off History</title>
+      <title>$review_type_label$ - Sign-off History</title>
 
       <table>
         <search>
@@ -67,18 +138,23 @@
             index=automation_local_user_group_audit sourcetype="user_audit_signoff"
             event_type="audit_signoff"
 
+            | where compliance_review_type="$service_catalog$"
+            | where (device="$filter_device$" OR "$filter_device$"="*")
+            | where (group="$filter_group$" OR "$filter_group$"="*")
             | where (hostname="$filter_host$" OR "$filter_host$"="*")
             | where (department="$filter_dept$" OR "$filter_dept$"="*")
             | where (reviewed_by="$filter_reviewer$" OR "$filter_reviewer$"="*")
 
             | eval "Signed Off At" = strftime(_time,"%d %b %Y %H:%M:%S")
 
-            | table "Signed Off At" hostname department reviewed_by remarks
+            | table "Signed Off At" hostname device department group reviewed_by remarks
 
-            | rename hostname as "Host"
-                     department as "Department"
+            | rename hostname    as "Host"
+                     device      as "Device"
+                     department  as "Department"
+                     group       as "Group"
                      reviewed_by as "Reviewed By"
-                     remarks as "Remarks"
+                     remarks     as "Remarks"
 
             | sort -"Signed Off At"
           </query>

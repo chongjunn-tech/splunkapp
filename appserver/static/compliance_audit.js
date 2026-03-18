@@ -134,6 +134,9 @@ require([
             var host       = row["hostname"] || "";
             var jobDate    = row["date_of_job"] || "";
             var reviewType = row["compliance_review_type"] || "";
+            var device     = row["device"] || "";
+            var department = row["department"] || "";
+            var group      = row["group"] || "";
             var uniqueKey  = host + "|" + jobDate;
 
             var isReviewed = row["reviewed_by_info"] && row["reviewed_by_info"] !== "-";
@@ -141,7 +144,14 @@ require([
             var rowClass   = isReviewed ? "reviewed" : "";
 
             html += "<tr class='" + rowClass + "'>";
-            html += "<td><input type='checkbox' class='row-chk' data-host='" + escHtml(host) + "' data-date='" + escHtml(jobDate) + "' data-review-type='" + escHtml(reviewType) + "' " + checked + "></td>";
+            html += "<td><input type='checkbox' class='row-chk'"
+                + " data-host='"        + escHtml(host)       + "'"
+                + " data-date='"        + escHtml(jobDate)     + "'"
+                + " data-review-type='" + escHtml(reviewType)  + "'"
+                + " data-device='"      + escHtml(device)      + "'"
+                + " data-department='"  + escHtml(department)  + "'"
+                + " data-group='"       + escHtml(group)       + "'"
+                + " " + checked + "></td>";
             COLS.forEach(function(c) {
                 html += "<td>" + escHtml(row[c.key] || "-") + "</td>";
             });
@@ -156,7 +166,12 @@ require([
             if (e.target && e.target.classList.contains("row-chk")) {
                 var key = e.target.getAttribute("data-host") + "|" + e.target.getAttribute("data-date");
                 selected[key] = e.target.checked;
-                selectedMeta[key] = { compliance_review_type: e.target.getAttribute("data-review-type") };
+                selectedMeta[key] = {
+                    compliance_review_type: e.target.getAttribute("data-review-type"),
+                    device:                 e.target.getAttribute("data-device"),
+                    department:             e.target.getAttribute("data-department"),
+                    group:                  e.target.getAttribute("data-group")
+                };
                 updateActionBar();
             }
             if (e.target && e.target.id === "chk-all") {
@@ -164,7 +179,12 @@ require([
                     var key = b.getAttribute("data-host") + "|" + b.getAttribute("data-date");
                     b.checked = e.target.checked;
                     selected[key] = e.target.checked;
-                    selectedMeta[key] = { compliance_review_type: b.getAttribute("data-review-type") };
+                    selectedMeta[key] = {
+                        compliance_review_type: b.getAttribute("data-review-type"),
+                        device:                 b.getAttribute("data-device"),
+                        department:             b.getAttribute("data-department"),
+                        group:                  b.getAttribute("data-group")
+                    };
                 });
                 updateActionBar();
             }
@@ -356,7 +376,10 @@ require([
                 var parts    = key.split("|");
                 var host     = parts[0];
                 var jobDate  = parts[1];
-                var rowReviewType = (selectedMeta[key] && selectedMeta[key].compliance_review_type) || reviewType;
+                var rowReviewType  = (selectedMeta[key] && selectedMeta[key].compliance_review_type) || reviewType;
+                var rowDevice      = (selectedMeta[key] && selectedMeta[key].device)      || "";
+                var rowDepartment  = (selectedMeta[key] && selectedMeta[key].department)  || "";
+                var rowGroup       = (selectedMeta[key] && selectedMeta[key].group)       || "";
 
                 return fetch(CONFIG.splunk.hecUrl, {
                     method: "POST",
@@ -371,6 +394,9 @@ require([
                             hostname:               host,
                             date_of_job:            jobDate,
                             compliance_review_type: rowReviewType,
+                            device:                 rowDevice,
+                            department:             rowDepartment,
+                            group:                  rowGroup,
                             reviewed_by:            reviewer,
                             reviewed_at:            now.toISOString(),
                             audit_year:             String(now.getFullYear()),
