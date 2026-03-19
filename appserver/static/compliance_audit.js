@@ -218,7 +218,11 @@ require([
             '| spath input=_raw path=hostname               output=hostname',
             '| spath input=_raw path=device                 output=device',
             '| spath input=_raw path=compliance_review_type output=compliance_review_type',
-            '| spath input=_raw path=time                   output=date_of_job',
+            // change UTC time to SGT: Note ansible server is in UTC timing
+            // so the timing comes in utc timing
+            '| spath input=_raw path=time output=date_of_job_raw',
+            '| eval date_of_job = strftime(strptime(date_of_job_raw, "%Y-%m-%dT%H:%M:%S"), "%d %b %Y %H:%M SGT")',
+            // '| spath input=_raw path=time                   output=date_of_job',
             '| spath input=_raw path=department             output=department',
             '| spath input=_raw path=additional_users{}     output=additional_users_mv',
             '| spath input=_raw path=missing_users{}        output=missing_users_mv',
