@@ -374,6 +374,7 @@ require([
                     reviewer = "local_admin"; // Final fallback for local testing
                 }
             }
+            var service = mvc.createService();
 
             var now = new Date();
             var promises = keys.map(function(key) {
@@ -385,36 +386,29 @@ require([
                 var rowDepartment  = (selectedMeta[key] && selectedMeta[key].department)  || "";
                 var rowGroup       = (selectedMeta[key] && selectedMeta[key].group)       || "";
 
-                return fetch(CONFIG.splunk.hecUrl, {
-                    method: "POST",
-                    headers: {
-                        "Authorization": "Splunk " + CONFIG.splunk.hecToken
-                    },
-                    body: JSON.stringify({
-                        sourcetype: "user_audit_signoff",
-                        index:      "automation_local_user_group_audit",
-                        event: {
-                            event_type:             "audit_signoff",
-                            hostname:               host,
-                            date_of_job:            jobDate,
-                            compliance_review_type: rowReviewType,
-                            device:                 rowDevice,
-                            department:             rowDepartment,
-                            group:                  rowGroup,
-                            reviewed_by:            reviewer,
-                            reviewed_at:            now.toISOString(),
-                            audit_year:             String(now.getFullYear()),
-                            remarks:                "Reviewed via dashboard by " + reviewer,
-                            audit_source:           "compliance_audit_app",
-                        }
-                    })
-                }).then(function(r) { return r.json(); });
+                return service.request(
+                    "signoff",
+                    "POST",
+                    null,
+                    null,
+                    JSON.stringify({
+                        hostname:               host,
+                        date_of_job:            jobDate,
+                        compliance_review_type: rowReviewType,
+                        device:                 rowDevice,
+                        department:             rowDepartment,
+                        group:                  rowGroup
+                    }),
+                    { "Content-Type": "application/json" },
+                    null
+                ).then(function(r) { return JSON.parse(r); });
+
             });
 
             Promise.all(promises)
-                .then(function(results) {
-                    var failed = results.filter(function(r) { return r.code !== 0; });
-                    if (failed.length > 0) throw new Error(failed[0].text);
+            .then(function(results) {
+                var failed = results.filter(function(r) { return r.status !== "ok"; });
+                if (failed.length > 0) throw new Error(failed[0].message || "Unknown error")
 
                     btn.textContent      = "Mark Selected as Reviewed";
                     btn.disabled         = true;
