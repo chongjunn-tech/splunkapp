@@ -220,7 +220,9 @@ require([
     function runAuditSearch() {
         showFeedback("Loading audit data...", "loading");
 
-        var reviewType = tokens.get("service_catalog") || "user";
+        var reviewType  = tokens.get("service_catalog") || "user";
+        var filterYear  = tokens.get("filter_year")    || "*";
+        var filterMonth = tokens.get("filter_month")   || "*";
         var dept       = tokens.get("filter_dept")     || "*";
         var host       = tokens.get("filter_host")     || "*";
         var device     = tokens.get("filter_device")   || "*";
@@ -247,7 +249,9 @@ require([
                 + ' AND (device="'     + device + '" OR "' + device + '"="*")'
                 + ' AND (hostname="'   + host   + '" OR "' + host   + '"="*")'
                 + ' AND (department="' + dept   + '" OR "' + dept   + '"="*")'
-                + ' AND (group="'      + group  + '" OR "' + group  + '"="*")',
+                + ' AND (group="'      + group  + '" OR "' + group  + '"="*")'
+                + ' AND (substr(date_of_job_raw, 1, 4)="' + filterYear  + '" OR "' + filterYear  + '"="*")'
+                + ' AND (substr(date_of_job_raw, 6, 2)="' + filterMonth + '" OR "' + filterMonth + '"="*")',
             '| eval additional_users     = if(isnull(mvjoin(additional_users_mv,     ", ")) OR mvjoin(additional_users_mv,     ", ")="", "-", mvjoin(additional_users_mv,     ", "))',
             '| eval missing_users        = if(isnull(mvjoin(missing_users_mv,        ", ")) OR mvjoin(missing_users_mv,        ", ")="", "-", mvjoin(missing_users_mv,        ", "))',
             '| eval locked_accounts      = if(isnull(mvjoin(locked_accounts_mv,      ", ")) OR mvjoin(locked_accounts_mv,      ", ")="", "-", mvjoin(locked_accounts_mv,      ", "))',
@@ -269,7 +273,6 @@ require([
             '| eval review_date_info = coalesce(review_date_info, "-")',
             '| dedup hostname date_of_job_raw device compliance_review_type',
             '| sort department hostname -date_of_job_raw',
-            '| dedup hostname device compliance_review_type',   // keep only latest job per host+device+type
             '| table hostname device compliance_review_type date_of_job date_of_job_raw department group additional_users missing_users locked_accounts expired_accounts interactive_accounts baseline_accounts reviewed_by_info review_date_info'
         ].join(" ");
 
@@ -341,7 +344,7 @@ require([
 
     // ── Token listeners ─────────────────────────────────────────────────────
     runAuditSearch();
-    tokens.on("change:service_catalog change:filter_device change:filter_dept change:filter_group change:filter_host", function() {
+    tokens.on("change:service_catalog change:filter_year change:filter_month change:filter_device change:filter_dept change:filter_group change:filter_host", function() {
         runAuditSearch();
     });
 

@@ -2,7 +2,6 @@
   <label>Compliance - Local Users &amp; Group Review</label>
   <description>
   Annual review of local user account compliance. 
-  Each hostname reflects its latest audit job. 
   Account baselines are maintained by the team in Azure DevOps.
    </description>
 
@@ -10,7 +9,7 @@
     <set token="review_type_label">Compliance - Local Users Review</set>
   </init>
 
-  <fieldset submitButton="true" autoRun="true">
+  <fieldset submitButton="false" autoRun="true">
 
     <input type="dropdown" token="service_catalog" searchWhenChanged="true">
       <label>Service Catalog</label>
@@ -26,10 +25,94 @@
         <condition value="group">
           <set token="review_type_label">Compliance - Local Group Review</set>
         </condition>
+        <set token="filter_year">*</set>
+        <set token="form.filter_year">*</set>
+        <set token="filter_month">*</set>
+        <set token="form.filter_month">*</set>
         <set token="filter_device">*</set>
         <set token="form.filter_device">*</set>
         <set token="filter_dept">*</set>
         <set token="form.filter_dept">*</set>
+        <set token="filter_host">*</set>
+        <set token="form.filter_host">*</set>
+      </change>
+    </input>
+
+    <!-- Audit Job Year filter -->
+    <input type="dropdown" token="filter_year" searchWhenChanged="true">
+      <label>Audit Job Year</label>
+      <default>*</default>
+      <choice value="*">-- All Years --</choice>
+      <search>
+        <query>
+          index=automation_local_user_group_audit sourcetype="custom:automation_local_user_group_audit:logs"
+          | spath input=_raw path=compliance_review_type output=compliance_review_type
+          | spath input=_raw path=time                   output=job_time
+          | where compliance_review_type="$service_catalog$"
+          | eval year = substr(job_time, 1, 4)
+          | stats count by year
+          | sort - year
+          | fields year
+        </query>
+      </search>
+      <fieldForLabel>year</fieldForLabel>
+      <fieldForValue>year</fieldForValue>
+      <change>
+        <set token="filter_month">*</set>
+        <set token="form.filter_month">*</set>
+        <set token="filter_device">*</set>
+        <set token="form.filter_device">*</set>
+        <set token="filter_dept">*</set>
+        <set token="form.filter_dept">*</set>
+        <set token="filter_group">*</set>
+        <set token="form.filter_group">*</set>
+        <set token="filter_host">*</set>
+        <set token="form.filter_host">*</set>
+      </change>
+    </input>
+
+    <!-- Audit Job Month filter -->
+    <input type="dropdown" token="filter_month" searchWhenChanged="true">
+      <label>Audit Job Month</label>
+      <default>*</default>
+      <choice value="*">-- All Months --</choice>
+      <search>
+        <query>
+          index=automation_local_user_group_audit sourcetype="custom:automation_local_user_group_audit:logs"
+          | spath input=_raw path=compliance_review_type output=compliance_review_type
+          | spath input=_raw path=time                   output=job_time
+          | where compliance_review_type="$service_catalog$"
+          AND (substr(job_time, 1, 4)="$filter_year$" OR "$filter_year$"="*")
+          | eval month_num   = substr(job_time, 6, 2)
+          | eval month_sort  = substr(job_time, 1, 7)
+          | eval month_label = case(
+              month_num="01", "Jan " + substr(job_time, 1, 4),
+              month_num="02", "Feb " + substr(job_time, 1, 4),
+              month_num="03", "Mar " + substr(job_time, 1, 4),
+              month_num="04", "Apr " + substr(job_time, 1, 4),
+              month_num="05", "May " + substr(job_time, 1, 4),
+              month_num="06", "Jun " + substr(job_time, 1, 4),
+              month_num="07", "Jul " + substr(job_time, 1, 4),
+              month_num="08", "Aug " + substr(job_time, 1, 4),
+              month_num="09", "Sep " + substr(job_time, 1, 4),
+              month_num="10", "Oct " + substr(job_time, 1, 4),
+              month_num="11", "Nov " + substr(job_time, 1, 4),
+              month_num="12", "Dec " + substr(job_time, 1, 4)
+            )
+          | stats first(month_label) as month_label first(month_sort) as month_sort by month_num
+          | sort - month_sort
+          | fields month_num month_label
+        </query>
+      </search>
+      <fieldForLabel>month_label</fieldForLabel>
+      <fieldForValue>month_num</fieldForValue>
+      <change>
+        <set token="filter_device">*</set>
+        <set token="form.filter_device">*</set>
+        <set token="filter_dept">*</set>
+        <set token="form.filter_dept">*</set>
+        <set token="filter_group">*</set>
+        <set token="form.filter_group">*</set>
         <set token="filter_host">*</set>
         <set token="form.filter_host">*</set>
       </change>
@@ -44,8 +127,11 @@
         <query>
           index=automation_local_user_group_audit sourcetype="custom:automation_local_user_group_audit:logs"
           | spath input=_raw path=compliance_review_type output=compliance_review_type
-          | spath input=_raw path=device output=device
+          | spath input=_raw path=device                 output=device
+          | spath input=_raw path=time                   output=job_time
           | where compliance_review_type="$service_catalog$"
+          AND (substr(job_time, 1, 4)="$filter_year$"  OR "$filter_year$"="*")
+          AND (substr(job_time, 6, 2)="$filter_month$" OR "$filter_month$"="*")
           | stats count by device | fields device
         </query>
       </search>
@@ -70,8 +156,13 @@
         <query>
           index=automation_local_user_group_audit sourcetype="custom:automation_local_user_group_audit:logs"
           | spath input=_raw path=compliance_review_type output=compliance_review_type
-          | spath input=_raw path=department output=department
-          | where compliance_review_type="$service_catalog$" AND (device="$filter_device$" OR "$filter_device$"="*")
+          | spath input=_raw path=department             output=department
+          | spath input=_raw path=device                 output=device
+          | spath input=_raw path=time                   output=job_time
+          | where compliance_review_type="$service_catalog$"
+          AND (substr(job_time, 1, 4)="$filter_year$"  OR "$filter_year$"="*")
+          AND (substr(job_time, 6, 2)="$filter_month$" OR "$filter_month$"="*")
+          AND (device="$filter_device$" OR "$filter_device$"="*")
           | stats count by department | fields department
         </query>
       </search>
@@ -96,8 +187,15 @@
         <query>
           index=automation_local_user_group_audit sourcetype="custom:automation_local_user_group_audit:logs"
           | spath input=_raw path=compliance_review_type output=compliance_review_type
-          | spath input=_raw path=group output=group
-          | where compliance_review_type="$service_catalog$" AND (device="$filter_device$" OR "$filter_device$"="*") AND (department="$filter_dept$" OR "$filter_dept$"="*")
+          | spath input=_raw path=group                  output=group
+          | spath input=_raw path=device                 output=device
+          | spath input=_raw path=department             output=department
+          | spath input=_raw path=time                   output=job_time
+          | where compliance_review_type="$service_catalog$"
+          AND (substr(job_time, 1, 4)="$filter_year$"  OR "$filter_year$"="*")
+          AND (substr(job_time, 6, 2)="$filter_month$" OR "$filter_month$"="*")
+          AND (device="$filter_device$"   OR "$filter_device$"="*")
+          AND (department="$filter_dept$" OR "$filter_dept$"="*")
           | stats count by group | fields group
         </query>
       </search>
@@ -117,10 +215,17 @@
         <query>
           index=automation_local_user_group_audit sourcetype="custom:automation_local_user_group_audit:logs"
           | spath input=_raw path=compliance_review_type output=compliance_review_type
-          | spath input=_raw path=device output=device
-          | spath input=_raw path=department output=department
-          | spath input=_raw path=hostname output=hostname
-          | where compliance_review_type="$service_catalog$" AND (device="$filter_device$" OR "$filter_device$"="*") AND (department="$filter_dept$" OR "$filter_dept$"="*") AND (group="$filter_group$" OR "$filter_group$"="*")
+          | spath input=_raw path=device                 output=device
+          | spath input=_raw path=department             output=department
+          | spath input=_raw path=group                  output=group
+          | spath input=_raw path=hostname               output=hostname
+          | spath input=_raw path=time                   output=job_time
+          | where compliance_review_type="$service_catalog$"
+          AND (substr(job_time, 1, 4)="$filter_year$"  OR "$filter_year$"="*")
+          AND (substr(job_time, 6, 2)="$filter_month$" OR "$filter_month$"="*")
+          AND (device="$filter_device$"   OR "$filter_device$"="*")
+          AND (department="$filter_dept$" OR "$filter_dept$"="*")
+          AND (group="$filter_group$"     OR "$filter_group$"="*")
           | stats count by hostname | fields hostname
         </query>
       </search>

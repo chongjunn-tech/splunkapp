@@ -1,5 +1,5 @@
 <nav search_view="search" color="#1d4ed8">
   <view name="compliance_local_users" default="true" />
-  <view name="signoff_history" label="Sign off history"/>
+  <view name="review_history" label="Review history"/>
 
 </nav>
