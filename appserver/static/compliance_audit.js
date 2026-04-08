@@ -13,21 +13,94 @@ require([
     var currentPage  = 1;
     var allRows      = [];
 
-    var COLS = [
-        { key: "date_of_job",            label: "Date of Job" },
-        { key: "hostname",               label: "Host" },
-        { key: "device",                 label: "Device" },
-        { key: "department",             label: "Department" },
-        { key: "group",                  label: "Group" },
-        { key: "additional_users",       label: "Additional Users" },
-        { key: "missing_users",          label: "Missing Users" },
-        { key: "locked_accounts",        label: "Locked" },
-        { key: "expired_accounts",       label: "Expired" },
-        { key: "interactive_accounts",   label: "Interactive" },
-        { key: "baseline_accounts",      label: "Baseline Accounts" },
-        { key: "reviewed_by_info",       label: "Reviewed By" },
-        { key: "review_date_info",       label: "Review Date" }
-    ];
+    // var COLS = [
+    //     { key: "date_of_job",            label: "Date of Job" },
+    //     { key: "hostname",               label: "Host" },
+    //     { key: "device",                 label: "Device" },
+    //     { key: "department",             label: "Department" },
+    //     { key: "group",                  label: "Group" },
+    //     { key: "additional_users",       label: "Additional Users" },
+    //     { key: "missing_users",          label: "Missing Users" },
+    //     { key: "locked_accounts",        label: "Locked" },
+    //     { key: "expired_accounts",       label: "Expired" },
+    //     { key: "interactive_accounts",   label: "Interactive" },
+    //     { key: "baseline_accounts",      label: "Baseline Accounts" },
+    //     { key: "reviewed_by_info",       label: "Reviewed By" },
+    //     { key: "review_date_info",       label: "Review Date" }
+    // ];
+    // ── Catalog config map ──────────────────────────────────────────────────────
+ // ── Review type config ──────────────────────────────────────────────────────
+    var REVIEW_CONFIG = {
+        user: {
+            cols: [
+                { key: "date_of_job",          label: "Date of Job" },
+                { key: "hostname",             label: "Host" },
+                { key: "device",               label: "Device" },
+                { key: "department",           label: "Department" },
+                { key: "group",                label: "Group" },
+                { key: "additional_users",     label: "Additional Users" },
+                { key: "missing_users",        label: "Missing Users" },
+                { key: "locked_accounts",      label: "Locked" },
+                { key: "expired_accounts",     label: "Expired" },
+                { key: "interactive_accounts", label: "Interactive" },
+                { key: "baseline_accounts",    label: "Baseline Accounts" },
+                { key: "reviewed_by_info",     label: "Reviewed By" },
+                { key: "review_date_info",     label: "Review Date" }
+            ],
+            // extra spath fields to extract from _raw
+            spathFields: [
+                { path: "additional_users{}",     output: "additional_users_mv" },
+                { path: "missing_users{}",        output: "missing_users_mv" },
+                { path: "locked_accounts{}",      output: "locked_accounts_mv" },
+                { path: "expired_accounts{}",     output: "expired_accounts_mv" },
+                { path: "interactive_accounts{}", output: "interactive_accounts_mv" },
+                { path: "baseline_accounts{}",    output: "baseline_accounts_mv" }
+            ],
+            // mvjoin evals to produce display columns
+            mvEvals: [
+                { field: "additional_users",     mv: "additional_users_mv" },
+                { field: "missing_users",        mv: "missing_users_mv" },
+                { field: "locked_accounts",      mv: "locked_accounts_mv" },
+                { field: "expired_accounts",     mv: "expired_accounts_mv" },
+                { field: "interactive_accounts", mv: "interactive_accounts_mv" },
+                { field: "baseline_accounts",    mv: "baseline_accounts_mv" }
+            ],
+            // fields in the final | table clause
+            tableFields: "hostname device compliance_review_type date_of_job date_of_job_raw department group additional_users missing_users locked_accounts expired_accounts interactive_accounts baseline_accounts reviewed_by_info review_date_info"
+        },
+
+        group: {
+            cols: [
+                { key: "date_of_job",      label: "Date of Job" },
+                { key: "hostname",         label: "Host" },
+                { key: "device",           label: "Device" },
+                { key: "department",       label: "Department" },
+                { key: "group",            label: "Group" },
+                { key: "additional_groups",     label: "Additional Groups" },
+                { key: "missing_groups",     label: "Missing Groups" },
+                { key: "wheel_groups",     label: "Wheel Groups" },
+                { key: "ldap_groups",     label: "LDAP Groups" },
+                { key: "baseline_groups",     label: "Baseline Groups" },
+                { key: "reviewed_by_info", label: "Reviewed By" },
+                { key: "review_date_info", label: "Review Date" }
+            ],
+            spathFields: [
+                { path: "additional_groups{}", output: "additional_groups_mv" },
+                { path: "missing_groups{}", output: "missing_groups_mv" },
+                { path: "wheel_groups{}", output: "wheel_groups_mv" },
+                { path: "ldap_groups{}", output: "ldap_groups_mv" },
+                { path: "baseline_groups{}", output: "baseline_groups_mv" },
+            ],
+            mvEvals: [
+                { field: "additional_groups", mv: "additional_groups_mv" },
+                { field: "missing_groups", mv: "missing_groups_mv" },
+                { field: "wheel_groups", mv: "wheel_groups_mv" },
+                { field: "ldap_groups", mv: "ldap_groups_mv" },
+                { field: "baseline_groups", mv: "baseline_groups_mv" },
+            ],
+            tableFields: "hostname device compliance_review_type date_of_job date_of_job_raw department group additional_groups missing_groups wheel_groups ldap_groups baseline_groups reviewed_by_info review_date_info"
+        }
+    };
 
     function escHtml(str) {
         return String(str)
@@ -208,16 +281,16 @@ require([
         updateActionBar();
     }
 
-    function renderTable(rows) {
+    function renderTable(rows, restorePage) {
         allRows     = rows || [];
-        currentPage = 1;
+        currentPage = (restorePage && restorePage <= totalPages()) ? restorePage : 1;
         renderPage();
     }
 
     // ── Search ──────────────────────────────────────────────────────────────
     var status = document.getElementById("audit-search-status");
 
-    function runAuditSearch() {
+    function runAuditSearch(restorePage) {
         showFeedback("Loading audit data...", "loading");
 
         var reviewType  = tokens.get("service_catalog") || "user";
@@ -228,53 +301,56 @@ require([
         var device     = tokens.get("filter_device")   || "*";
         var group      = tokens.get("filter_group")    || "*";
 
+        var cfg  = REVIEW_CONFIG[reviewType];
+        COLS     = cfg.cols;
+
+            // ── Build dynamic spath + eval blocks ───────────────────────────────────
+        var spathLines = cfg.spathFields.map(function(f) {
+            return '| spath input=_raw path=' + f.path + ' output=' + f.output;
+        });
+
+        var evalLines = cfg.mvEvals.map(function(f) {
+            return '| eval ' + f.field + ' = if(isnull(mvjoin(' + f.mv + ', ", ")) OR mvjoin(' + f.mv + ', ", ")="", "-", mvjoin(' + f.mv + ', ", "))';
+        });
+
+
         var query = [
-            'index=' + CONFIG.indexes.auditIndex + ' sourcetype="' + CONFIG.sourcetypes.auditLogs + '"',
-            '| spath input=_raw path=hostname               output=hostname',
-            '| spath input=_raw path=device                 output=device',
-            '| spath input=_raw path=compliance_review_type output=compliance_review_type',
-            // Keep raw UTC value for joining with signoff events
-            '| spath input=_raw path=time                   output=date_of_job_raw',
-            // Convert UTC → SGT (+8h) for display only
-            '| eval date_of_job = strftime(strptime(date_of_job_raw, "%Y-%m-%dT%H:%M:%S") + 28800, "%d %b %Y %H:%M SGT")',
-            '| spath input=_raw path=department             output=department',
-            '| spath input=_raw path=group                  output=group',
-            '| spath input=_raw path=additional_users{}     output=additional_users_mv',
-            '| spath input=_raw path=missing_users{}        output=missing_users_mv',
-            '| spath input=_raw path=locked_accounts{}      output=locked_accounts_mv',
-            '| spath input=_raw path=expired_accounts{}     output=expired_accounts_mv',
-            '| spath input=_raw path=interactive_accounts{} output=interactive_accounts_mv',
-            '| spath input=_raw path=baseline_accounts{}    output=baseline_accounts_mv',
-            '| where compliance_review_type="' + reviewType + '"'
-                + ' AND (device="'     + device + '" OR "' + device + '"="*")'
-                + ' AND (hostname="'   + host   + '" OR "' + host   + '"="*")'
-                + ' AND (department="' + dept   + '" OR "' + dept   + '"="*")'
-                + ' AND (group="'      + group  + '" OR "' + group  + '"="*")'
-                + ' AND (substr(date_of_job_raw, 1, 4)="' + filterYear  + '" OR "' + filterYear  + '"="*")'
-                + ' AND (substr(date_of_job_raw, 6, 2)="' + filterMonth + '" OR "' + filterMonth + '"="*")',
-            '| eval additional_users     = if(isnull(mvjoin(additional_users_mv,     ", ")) OR mvjoin(additional_users_mv,     ", ")="", "-", mvjoin(additional_users_mv,     ", "))',
-            '| eval missing_users        = if(isnull(mvjoin(missing_users_mv,        ", ")) OR mvjoin(missing_users_mv,        ", ")="", "-", mvjoin(missing_users_mv,        ", "))',
-            '| eval locked_accounts      = if(isnull(mvjoin(locked_accounts_mv,      ", ")) OR mvjoin(locked_accounts_mv,      ", ")="", "-", mvjoin(locked_accounts_mv,      ", "))',
-            '| eval expired_accounts     = if(isnull(mvjoin(expired_accounts_mv,     ", ")) OR mvjoin(expired_accounts_mv,     ", ")="", "-", mvjoin(expired_accounts_mv,     ", "))',
-            '| eval interactive_accounts = if(isnull(mvjoin(interactive_accounts_mv, ", ")) OR mvjoin(interactive_accounts_mv, ", ")="", "-", mvjoin(interactive_accounts_mv, ", "))',
-            '| eval baseline_accounts    = if(isnull(mvjoin(baseline_accounts_mv,    ", ")) OR mvjoin(baseline_accounts_mv,    ", ")="", "-", mvjoin(baseline_accounts_mv,    ", "))',
-            // Join on raw date + hostname + device + review_type so the key always matches
-            // (date_of_job in signoff events is stored as the raw UTC value)
-            '| join type=left hostname date_of_job_raw device compliance_review_type [',
-            '    search index=automation_local_user_group_audit sourcetype="user_audit_signoff" event_type="audit_signoff"',
-            '    | rename date_of_job as date_of_job_raw',
-            '    | sort - _time',
-            '    | dedup hostname date_of_job_raw device compliance_review_type',
-            '    | eval reviewed_by_info = reviewed_by',
-            '    | eval review_date_info = strftime(_time, "%d %b %Y %H:%M SGT")',
-            '    | table hostname date_of_job_raw device compliance_review_type reviewed_by_info review_date_info',
-            '  ]',
-            '| eval reviewed_by_info = coalesce(reviewed_by_info, "-")',
-            '| eval review_date_info = coalesce(review_date_info, "-")',
-            '| dedup hostname date_of_job_raw device compliance_review_type',
-            '| sort department hostname -date_of_job_raw',
-            '| table hostname device compliance_review_type date_of_job date_of_job_raw department group additional_users missing_users locked_accounts expired_accounts interactive_accounts baseline_accounts reviewed_by_info review_date_info'
-        ].join(" ");
+                'index=' + CONFIG.indexes.auditIndex + ' sourcetype="' + CONFIG.sourcetypes.auditLogs + '"',
+                '| spath input=_raw path=hostname               output=hostname',
+                '| spath input=_raw path=device                 output=device',
+                '| spath input=_raw path=compliance_review_type output=compliance_review_type',
+                '| spath input=_raw path=time                   output=date_of_job_raw',
+                '| eval date_of_job = strftime(strptime(date_of_job_raw, "%Y-%m-%dT%H:%M:%S") + 28800, "%d %b %Y %H:%M SGT")',
+                '| spath input=_raw path=department             output=department',
+                '| spath input=_raw path=group                  output=group',
+            ]
+            .concat(spathLines)
+            .concat([
+                '| where compliance_review_type="' + reviewType + '"'
+                    + ' AND (device="'     + device + '" OR "' + device + '"="*")'
+                    + ' AND (hostname="'   + host   + '" OR "' + host   + '"="*")'
+                    + ' AND (department="' + dept   + '" OR "' + dept   + '"="*")'
+                    + ' AND (group="'      + group  + '" OR "' + group  + '"="*")'
+                    + ' AND (substr(date_of_job_raw, 1, 4)="' + filterYear  + '" OR "' + filterYear  + '"="*")'
+                    + ' AND (substr(date_of_job_raw, 6, 2)="' + filterMonth + '" OR "' + filterMonth + '"="*")',
+            ])
+            .concat(evalLines)
+            .concat([
+                '| join type=left hostname date_of_job_raw device compliance_review_type [',
+                '    search index=automation_local_user_group_audit sourcetype="user_audit_signoff" event_type="audit_signoff"',
+                '    | rename date_of_job as date_of_job_raw',
+                '    | sort - _time',
+                '    | dedup hostname date_of_job_raw device compliance_review_type',
+                '    | eval reviewed_by_info = reviewed_by',
+                '    | eval review_date_info = strftime(_time, "%d %b %Y %H:%M SGT")',
+                '    | table hostname date_of_job_raw device compliance_review_type reviewed_by_info review_date_info',
+                '  ]',
+                '| eval reviewed_by_info = coalesce(reviewed_by_info, "-")',
+                '| eval review_date_info = coalesce(review_date_info, "-")',
+                '| dedup hostname date_of_job_raw device compliance_review_type',
+                '| sort department hostname -date_of_job_raw',
+                '| table ' + cfg.tableFields
+            ]).join(" ");
 
         var sm = new SearchManager({
             id:        "audit-search-" + Date.now(),
@@ -299,7 +375,8 @@ require([
                     return obj;
                 });
                 if (status) status.textContent = "";
-                renderTable(rows);
+                // renderTable(rows);
+                renderTable(rows, restorePage);  // pass restorePage here
                 showFeedback("Audit data loaded", "success");
             });
         });
@@ -428,7 +505,10 @@ require([
                         "success"
                     );
 
-                    setTimeout(function() { runAuditSearch(); }, CONFIG.ui.refreshDelay);
+                    // Save current page before refresh
+                    var savedPage = currentPage;
+
+                    setTimeout(function() { runAuditSearch(savedPage); }, CONFIG.ui.refreshDelay);
                 })
                 .catch(function(err) {
                     console.error("Signoff error:", err);
