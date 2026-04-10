@@ -81,7 +81,6 @@ require([
                 { key: "additional_groups",     label: "Additional Groups" },
                 { key: "missing_groups",     label: "Missing Groups" },
                 { key: "wheel_groups",     label: "Wheel Groups" },
-                { key: "ldap_groups",     label: "LDAP Groups" },
                 { key: "baseline_groups",     label: "Baseline Groups" },
                 { key: "reviewed_by_info", label: "Reviewed By" },
                 { key: "review_date_info", label: "Review Date" }
@@ -90,17 +89,15 @@ require([
                 { path: "additional_groups{}", output: "additional_groups_mv" },
                 { path: "missing_groups{}", output: "missing_groups_mv" },
                 { path: "wheel_groups{}", output: "wheel_groups_mv" },
-                { path: "ldap_groups{}", output: "ldap_groups_mv" },
                 { path: "baseline_groups{}", output: "baseline_groups_mv" },
             ],
             mvEvals: [
                 { field: "additional_groups", mv: "additional_groups_mv" },
                 { field: "missing_groups", mv: "missing_groups_mv" },
                 { field: "wheel_groups", mv: "wheel_groups_mv" },
-                { field: "ldap_groups", mv: "ldap_groups_mv" },
                 { field: "baseline_groups", mv: "baseline_groups_mv" },
             ],
-            tableFields: "hostname device compliance_review_type date_of_job date_of_job_raw department group additional_groups missing_groups wheel_groups ldap_groups baseline_groups reviewed_by_info review_date_info"
+            tableFields: "hostname device compliance_review_type date_of_job date_of_job_raw department group additional_groups missing_groups wheel_groups baseline_groups reviewed_by_info review_date_info"
         }
     };
 
