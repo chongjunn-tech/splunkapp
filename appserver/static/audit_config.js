@@ -13,6 +13,7 @@ define([], function () {
         ui: {
             refreshDelay: 2000,
             pageSize: 10,
+            hostnameWidth: 120
         }
     };
 

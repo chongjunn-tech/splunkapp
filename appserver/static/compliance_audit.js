@@ -214,7 +214,10 @@ require([
 
         var html = "<table class='audit-table'><thead><tr>";
         html += "<th style='width:32px;'><input type='checkbox' id='chk-all' title='Select all'></th>";
-        COLS.forEach(function(c) { html += "<th>" + c.label + "</th>"; });
+        COLS.forEach(function(c) {
+            var style = c.key === "hostname"? ` style='min-width:${CONFIG.ui.hostnameWidth}px;'`: "";
+            html += "<th" + style + ">" + c.label + "</th>";
+        });
         html += "</tr></thead><tbody>";
 
         rows.forEach(function(row) {
