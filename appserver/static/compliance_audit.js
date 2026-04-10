@@ -385,7 +385,7 @@ require([
         }, { tokens: false });
 
         currentSearchManager.on("search:done", function() {
-            var results = currentSearchManager.data("results", { offset: 0 });
+            var results = currentSearchManager.data("results", { offset: 0,  count: 0  });
             results.on("data", function() {
                 var d = results.data();
                 if (!d || !d.rows || !d.fields) {
