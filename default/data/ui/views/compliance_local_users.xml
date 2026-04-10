@@ -17,7 +17,7 @@
       <initialValue>user</initialValue>
       <choice value="user">Compliance - Local Users Review</choice>
       <choice value="group">Compliance - Local Group Review</choice>
-      <!-- Reset all downstream filters when service catalog changes -->
+      <!-- Update label when service catalog changes — resets handled by JS -->
       <change>
         <condition value="user">
           <set token="review_type_label">Compliance - Local Users Review</set>
@@ -25,16 +25,6 @@
         <condition value="group">
           <set token="review_type_label">Compliance - Local Group Review</set>
         </condition>
-        <set token="filter_year">*</set>
-        <set token="form.filter_year">*</set>
-        <set token="filter_month">*</set>
-        <set token="form.filter_month">*</set>
-        <set token="filter_device">*</set>
-        <set token="form.filter_device">*</set>
-        <set token="filter_dept">*</set>
-        <set token="form.filter_dept">*</set>
-        <set token="filter_host">*</set>
-        <set token="form.filter_host">*</set>
       </change>
     </input>
 
@@ -59,18 +49,7 @@
       </search>
       <fieldForLabel>year</fieldForLabel>
       <fieldForValue>year</fieldForValue>
-      <change>
-        <set token="filter_month">*</set>
-        <set token="form.filter_month">*</set>
-        <set token="filter_device">*</set>
-        <set token="form.filter_device">*</set>
-        <set token="filter_dept">*</set>
-        <set token="form.filter_dept">*</set>
-        <set token="filter_group">*</set>
-        <set token="form.filter_group">*</set>
-        <set token="filter_host">*</set>
-        <set token="form.filter_host">*</set>
-      </change>
+
     </input>
 
     <!-- Audit Job Month filter -->
@@ -110,16 +89,7 @@
       </search>
       <fieldForLabel>month_label</fieldForLabel>
       <fieldForValue>month_num</fieldForValue>
-      <change>
-        <set token="filter_device">*</set>
-        <set token="form.filter_device">*</set>
-        <set token="filter_dept">*</set>
-        <set token="form.filter_dept">*</set>
-        <set token="filter_group">*</set>
-        <set token="form.filter_group">*</set>
-        <set token="filter_host">*</set>
-        <set token="form.filter_host">*</set>
-      </change>
+
     </input>
 
     <!-- Device -->
@@ -142,13 +112,7 @@
       </search>
       <fieldForLabel>device</fieldForLabel>
       <fieldForValue>device</fieldForValue>
-      <!-- Reset department and hostname when device changes -->
-      <change>
-        <set token="filter_dept">*</set>
-        <set token="form.filter_dept">*</set>
-        <set token="filter_host">*</set>
-        <set token="form.filter_host">*</set>
-      </change>
+
     </input>
 
     <!-- Department -->
@@ -172,13 +136,7 @@
       </search>
       <fieldForLabel>department</fieldForLabel>
       <fieldForValue>department</fieldForValue>
-      <!-- Reset hostname when department changes -->
-      <change>
-        <set token="filter_group">*</set>
-        <set token="form.filter_group">*</set>
-        <set token="filter_host">*</set>
-        <set token="form.filter_host">*</set>
-      </change>
+
     </input>
 
     <!-- group -->
@@ -204,10 +162,7 @@
       </search>
       <fieldForLabel>group</fieldForLabel>
       <fieldForValue>group</fieldForValue>
-      <change>
-        <set token="filter_host">*</set>
-        <set token="form.filter_host">*</set>
-      </change>
+
     </input>
     
     <input type="dropdown" token="filter_host" searchWhenChanged="true" depends="$filter_dept$">

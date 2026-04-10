@@ -190,6 +190,7 @@ require([
             else if (id === "pager-next")  currentPage = Math.min(totalPages(), currentPage + 1);
             else if (id === "pager-last")  currentPage = totalPages();
             else if (!isNaN(pg))           currentPage = pg;
+            saveFilters();
             renderPage();
         });
     }
@@ -439,9 +440,40 @@ require([
         }
     }
 
+    // ── Filter persistence via URL params ──────────────────────────────────
+    // Splunk natively reads form.* URL params and sets tokens before any JS
+    // or XML init runs — so this approach survives page refresh reliably.
+    var FILTER_KEYS = [
+        "service_catalog", "filter_year", "filter_month",
+        "filter_device", "filter_dept", "filter_group", "filter_host"
+    ];
+
+    function saveFilters() {
+        var params = {};
+        FILTER_KEYS.forEach(function(key) {
+            var val = tokens.get(key);
+            if (val) params["form." + key] = val;
+        });
+        params["form.audit_page"] = currentPage;
+
+        var queryString = Object.keys(params).map(function(k) {
+            return encodeURIComponent(k) + "=" + encodeURIComponent(params[k]);
+        }).join("&");
+
+        // Update URL without reloading the page
+        window.history.replaceState(null, "", window.location.pathname + "?" + queryString);
+    }
+
+    function getSavedPage() {
+        var params = new URLSearchParams(window.location.search);
+        return parseInt(params.get("form.audit_page"), 10) || 1;
+    }
+
     // ── Token listeners ─────────────────────────────────────────────────────
-    runAuditSearch();
+    var savedPage = getSavedPage();
+    runAuditSearch(savedPage);
     tokens.on("change:service_catalog change:filter_year change:filter_month change:filter_device change:filter_dept change:filter_group change:filter_host", function() {
+        saveFilters();
         runAuditSearch();
     });
 
