@@ -6,12 +6,14 @@ require([
     "splunkjs/mvc/simplexml/ready!"
 ], function(mvc, SearchManager, CONFIG) {
 
-    var tokens       = mvc.Components.getInstance("default");
-    var selected     = {};
-    var selectedMeta = {};  // key -> { compliance_review_type, device, department, group, date_of_job_raw }
-    var PAGE_SIZE    = CONFIG.ui.pageSize || 10;
-    var currentPage  = 1;
-    var allRows      = [];
+    var tokens               = mvc.Components.getInstance("default");
+    var selected             = {};
+    var selectedMeta         = {};  // key -> { compliance_review_type, device, department, group, date_of_job_raw }
+    var PAGE_SIZE            = CONFIG.ui.pageSize || 10;
+    var currentPage          = 1;
+    var allRows              = [];
+    var currentSearchManager = null;
+    var COLS                 = [];
 
     // var COLS = [
     //     { key: "date_of_job",            label: "Date of Job" },
@@ -110,6 +112,23 @@ require([
             .replace(/"/g,  "&quot;");
     }
 
+    // ── Loading skeleton ────────────────────────────────────────────────────
+    function showLoading() {
+        var container = document.getElementById("audit-table-container");
+        var pager     = document.getElementById("audit-pager");
+        if (container) {
+            var html = "<table class='audit-table'><thead><tr>";
+            html += "<th style='width:32px;'></th>";
+            COLS.forEach(function(c) { html += "<th>" + c.label + "</th>"; });
+            html += "</tr></thead><tbody>";
+            html += "<tr><td colspan='" + (COLS.length + 1) + "' style='text-align:center;padding:32px;color:#6b7280;font-size:13px;'>";
+            html += "&#9203; Loading audit data...</td></tr>";
+            html += "</tbody></table>";
+            container.innerHTML = html;
+        }
+        if (pager) pager.innerHTML = "";
+    }
+
     // ── Action bar ──────────────────────────────────────────────────────────
     function updateActionBar() {
         var bar     = document.getElementById("audit-action-bar");
@@ -118,7 +137,7 @@ require([
         if (!bar || !btn || !counter) return;
 
         var count = Object.keys(selected).filter(function(k) { return selected[k]; }).length;
-        counter.textContent = count + " host" + (count !== 1 ? "s" : "") + " selected";
+        counter.textContent = count + " row(s)" + " selected";
         bar.style.display   = "block";
 
         if (count > 0) {
@@ -291,18 +310,26 @@ require([
     var status = document.getElementById("audit-search-status");
 
     function runAuditSearch(restorePage) {
-        showFeedback("Loading audit data...", "loading");
+        // Cancel and destroy previous search before starting a new one
+        if (currentSearchManager) {
+            currentSearchManager.cancel();
+            currentSearchManager.dispose();
+            currentSearchManager = null;
+        }
 
         var reviewType  = tokens.get("service_catalog") || "user";
         var filterYear  = tokens.get("filter_year")    || "*";
         var filterMonth = tokens.get("filter_month")   || "*";
-        var dept       = tokens.get("filter_dept")     || "*";
-        var host       = tokens.get("filter_host")     || "*";
-        var device     = tokens.get("filter_device")   || "*";
-        var group      = tokens.get("filter_group")    || "*";
+        var dept        = tokens.get("filter_dept")    || "*";
+        var host        = tokens.get("filter_host")    || "*";
+        var device      = tokens.get("filter_device")  || "*";
+        var group       = tokens.get("filter_group")   || "*";
 
-        var cfg  = REVIEW_CONFIG[reviewType];
+        var cfg  = REVIEW_CONFIG[reviewType] || REVIEW_CONFIG["user"];
         COLS     = cfg.cols;
+
+        // Show header + loading row immediately before search fires
+        showLoading();
 
             // ── Build dynamic spath + eval blocks ───────────────────────────────────
         var spathLines = cfg.spathFields.map(function(f) {
@@ -313,16 +340,12 @@ require([
             return '| eval ' + f.field + ' = if(isnull(mvjoin(' + f.mv + ', ", ")) OR mvjoin(' + f.mv + ', ", ")="", "-", mvjoin(' + f.mv + ', ", "))';
         });
 
-
         var query = [
-                'index=' + CONFIG.indexes.auditIndex + ' sourcetype="' + CONFIG.sourcetypes.auditLogs + '"',
-                '| spath input=_raw path=hostname               output=hostname',
-                '| spath input=_raw path=device                 output=device',
-                '| spath input=_raw path=compliance_review_type output=compliance_review_type',
-                '| spath input=_raw path=time                   output=date_of_job_raw',
+                'index=' + CONFIG.indexes.auditIndex + ' sourcetype="' + CONFIG.sourcetypes.auditLogs + '" earliest=-3y latest=now',
+                '| spath input=_raw path=time output=date_of_job_raw',
+
                 '| eval date_of_job = strftime(strptime(date_of_job_raw, "%Y-%m-%dT%H:%M:%S") + 28800, "%d %b %Y %H:%M SGT")',
-                '| spath input=_raw path=department             output=department',
-                '| spath input=_raw path=group                  output=group',
+
             ]
             .concat(spathLines)
             .concat([
@@ -337,7 +360,7 @@ require([
             .concat(evalLines)
             .concat([
                 '| join type=left hostname date_of_job_raw device compliance_review_type [',
-                '    search index=automation_local_user_group_audit sourcetype="user_audit_signoff" event_type="audit_signoff"',
+                '    search index=automation_local_user_group_audit sourcetype="user_audit_signoff" event_type="audit_signoff" earliest=-3y latest=now',
                 '    | rename date_of_job as date_of_job_raw',
                 '    | sort - _time',
                 '    | dedup hostname date_of_job_raw device compliance_review_type',
@@ -352,20 +375,19 @@ require([
                 '| table ' + cfg.tableFields
             ]).join(" ");
 
-        var sm = new SearchManager({
-            id:        "audit-search-" + Date.now(),
+        currentSearchManager = new SearchManager({
+            id:        "audit-search-main",
             search:    query,
             preview:   false,
-            cache:     false,
+            cache:     true,
             autostart: true
         }, { tokens: false });
 
-        sm.on("search:done", function() {
-            var results = sm.data("results", { offset: 0 });
+        currentSearchManager.on("search:done", function() {
+            var results = currentSearchManager.data("results", { offset: 0 });
             results.on("data", function() {
                 var d = results.data();
                 if (!d || !d.rows || !d.fields) {
-                    if (status) status.textContent = "";
                     renderTable([]);
                     return;
                 }
@@ -374,15 +396,13 @@ require([
                     d.fields.forEach(function(f, i) { obj[f] = row[i]; });
                     return obj;
                 });
-                if (status) status.textContent = "";
-                // renderTable(rows);
-                renderTable(rows, restorePage);  // pass restorePage here
+                renderTable(rows, restorePage);
                 showFeedback("Audit data loaded", "success");
             });
         });
 
-        sm.on("search:error", function(err) {
-            if (status) status.textContent = "Search error.";
+        currentSearchManager.on("search:error", function(err) {
+            showFeedback("Search error — check Splunk logs.", "error");
             console.error("Audit search error:", err);
         });
     }
@@ -500,10 +520,6 @@ require([
                     selectedMeta = {};
                     updateActionBar();
 
-                    showFeedback(
-                        keys.length + " host(s) marked as reviewed by " + reviewer + ": " + uniqueNames.join(", "),
-                        "success"
-                    );
 
                     // Save current page before refresh
                     var savedPage = currentPage;

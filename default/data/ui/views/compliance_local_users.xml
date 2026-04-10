@@ -45,15 +45,17 @@
       <choice value="*">-- All Years --</choice>
       <search>
         <query>
-          index=automation_local_user_group_audit sourcetype="custom:automation_local_user_group_audit:logs"
-          | spath input=_raw path=compliance_review_type output=compliance_review_type
-          | spath input=_raw path=time                   output=job_time
+          index=automation_local_user_group_audit sourcetype="custom:automation_local_user_group_audit:logs" earliest=-3y latest=now
+          | spath input=_raw path=time output=job_time
+
           | where compliance_review_type="$service_catalog$"
           | eval year = substr(job_time, 1, 4)
           | stats count by year
           | sort - year
           | fields year
         </query>
+        <earliestTime>-3y</earliestTime>
+        <latestTime>now</latestTime>
       </search>
       <fieldForLabel>year</fieldForLabel>
       <fieldForValue>year</fieldForValue>
@@ -78,9 +80,9 @@
       <choice value="*">-- All Months --</choice>
       <search>
         <query>
-          index=automation_local_user_group_audit sourcetype="custom:automation_local_user_group_audit:logs"
-          | spath input=_raw path=compliance_review_type output=compliance_review_type
-          | spath input=_raw path=time                   output=job_time
+          index=automation_local_user_group_audit sourcetype="custom:automation_local_user_group_audit:logs" earliest=-3y latest=now
+          | spath input=_raw path=time output=job_time
+
           | where compliance_review_type="$service_catalog$"
           AND (substr(job_time, 1, 4)="$filter_year$" OR "$filter_year$"="*")
           | eval month_num   = substr(job_time, 6, 2)
@@ -103,6 +105,8 @@
           | sort - month_sort
           | fields month_num month_label
         </query>
+        <earliestTime>-3y</earliestTime>
+        <latestTime>now</latestTime>
       </search>
       <fieldForLabel>month_label</fieldForLabel>
       <fieldForValue>month_num</fieldForValue>
@@ -125,15 +129,16 @@
       <choice value="*">-- All Devices --</choice>
       <search>
         <query>
-          index=automation_local_user_group_audit sourcetype="custom:automation_local_user_group_audit:logs"
-          | spath input=_raw path=compliance_review_type output=compliance_review_type
-          | spath input=_raw path=device                 output=device
-          | spath input=_raw path=time                   output=job_time
+          index=automation_local_user_group_audit sourcetype="custom:automation_local_user_group_audit:logs" earliest=-3y latest=now
+          | spath input=_raw path=time output=job_time
+
           | where compliance_review_type="$service_catalog$"
           AND (substr(job_time, 1, 4)="$filter_year$"  OR "$filter_year$"="*")
           AND (substr(job_time, 6, 2)="$filter_month$" OR "$filter_month$"="*")
           | stats count by device | fields device
         </query>
+        <earliestTime>-3y</earliestTime>
+        <latestTime>now</latestTime>
       </search>
       <fieldForLabel>device</fieldForLabel>
       <fieldForValue>device</fieldForValue>
@@ -146,7 +151,6 @@
       </change>
     </input>
 
-
     <!-- Department -->
     <input type="dropdown" token="filter_dept" searchWhenChanged="true">
       <label>Department</label>
@@ -154,17 +158,17 @@
       <choice value="*">-- All Departments --</choice>
       <search>
         <query>
-          index=automation_local_user_group_audit sourcetype="custom:automation_local_user_group_audit:logs"
-          | spath input=_raw path=compliance_review_type output=compliance_review_type
-          | spath input=_raw path=department             output=department
-          | spath input=_raw path=device                 output=device
-          | spath input=_raw path=time                   output=job_time
+          index=automation_local_user_group_audit sourcetype="custom:automation_local_user_group_audit:logs" earliest=-3y latest=now
+          | spath input=_raw path=time output=job_time
+
           | where compliance_review_type="$service_catalog$"
           AND (substr(job_time, 1, 4)="$filter_year$"  OR "$filter_year$"="*")
           AND (substr(job_time, 6, 2)="$filter_month$" OR "$filter_month$"="*")
           AND (device="$filter_device$" OR "$filter_device$"="*")
           | stats count by department | fields department
         </query>
+        <earliestTime>-3y</earliestTime>
+        <latestTime>now</latestTime>
       </search>
       <fieldForLabel>department</fieldForLabel>
       <fieldForValue>department</fieldForValue>
@@ -185,12 +189,9 @@
       <choice value="*">-- All Groups --</choice>
       <search>
         <query>
-          index=automation_local_user_group_audit sourcetype="custom:automation_local_user_group_audit:logs"
-          | spath input=_raw path=compliance_review_type output=compliance_review_type
-          | spath input=_raw path=group                  output=group
-          | spath input=_raw path=device                 output=device
-          | spath input=_raw path=department             output=department
-          | spath input=_raw path=time                   output=job_time
+          index=automation_local_user_group_audit sourcetype="custom:automation_local_user_group_audit:logs" earliest=-3y latest=now
+          | spath input=_raw path=time output=job_time
+
           | where compliance_review_type="$service_catalog$"
           AND (substr(job_time, 1, 4)="$filter_year$"  OR "$filter_year$"="*")
           AND (substr(job_time, 6, 2)="$filter_month$" OR "$filter_month$"="*")
@@ -198,6 +199,8 @@
           AND (department="$filter_dept$" OR "$filter_dept$"="*")
           | stats count by group | fields group
         </query>
+        <earliestTime>-3y</earliestTime>
+        <latestTime>now</latestTime>
       </search>
       <fieldForLabel>group</fieldForLabel>
       <fieldForValue>group</fieldForValue>
@@ -213,13 +216,9 @@
       <choice value="*">-- All Hosts --</choice>
       <search>
         <query>
-          index=automation_local_user_group_audit sourcetype="custom:automation_local_user_group_audit:logs"
-          | spath input=_raw path=compliance_review_type output=compliance_review_type
-          | spath input=_raw path=device                 output=device
-          | spath input=_raw path=department             output=department
-          | spath input=_raw path=group                  output=group
-          | spath input=_raw path=hostname               output=hostname
-          | spath input=_raw path=time                   output=job_time
+          index=automation_local_user_group_audit sourcetype="custom:automation_local_user_group_audit:logs" earliest=-3y latest=now
+          | spath input=_raw path=time output=job_time
+
           | where compliance_review_type="$service_catalog$"
           AND (substr(job_time, 1, 4)="$filter_year$"  OR "$filter_year$"="*")
           AND (substr(job_time, 6, 2)="$filter_month$" OR "$filter_month$"="*")
@@ -228,6 +227,8 @@
           AND (group="$filter_group$"     OR "$filter_group$"="*")
           | stats count by hostname | fields hostname
         </query>
+        <earliestTime>-3y</earliestTime>
+        <latestTime>now</latestTime>
       </search>
       <fieldForLabel>hostname</fieldForLabel>
       <fieldForValue>hostname</fieldForValue>
