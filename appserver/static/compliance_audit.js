@@ -236,7 +236,9 @@ require([
 
             var isReviewed = row["reviewed_by_info"] && row["reviewed_by_info"] !== "-";
             var checked    = selected[uniqueKey] ? "checked" : "";
-            var rowClass   = isReviewed ? "reviewed" : "";
+            var rowClass   = row._pending ? "pending"
+                           : isReviewed   ? "reviewed"
+                           : "";
 
             html += "<tr class='" + rowClass + "'>";
             html += "<td><input type='checkbox' class='row-chk'"
@@ -500,16 +502,43 @@ require([
                 catch (e) { reviewer = "local_admin"; }
             }
 
-            var service = mvc.createService();
+            // ── Compute SGT timestamp once for all rows ─────────────────────────
+            var now           = new Date();
+            var sgtTime       = new Date(now.getTime() + 8 * 60 * 60 * 1000);
+            var day           = String(sgtTime.getUTCDate()).padStart(2, "0");
+            var monthNames    = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+            var reviewDateSGT = day + " " + monthNames[sgtTime.getUTCMonth()] + " " + sgtTime.getUTCFullYear()
+                              + " " + String(sgtTime.getUTCHours()).padStart(2, "0")
+                              + ":" + String(sgtTime.getUTCMinutes()).padStart(2, "0") + " SGT";
 
+            // ── Set all selected rows to pending (spinner) ──────────────────────
+            keys.forEach(function(key) {
+                var parts = key.split("|");
+                allRows.forEach(function(row) {
+                    if (
+                        row.hostname               === parts[0] &&
+                        row.date_of_job_raw        === parts[1] &&
+                        row.compliance_review_type === parts[2] &&
+                        row.device                 === parts[3]
+                    ) {
+                        row._pending = true;
+                    }
+                });
+            });
+
+            // Clear selection immediately so checkboxes uncheck during spinner
+            selected     = {};
+            selectedMeta = {};
+            updateActionBar();
+
+            renderPage();  // show spinner on selected rows immediately
+
+            var service = mvc.createService();
+            var failed  = [];
+
+            // ── Fire one request per row — each resolves independently ──────────
             var promises = keys.map(function(key) {
-                var parts         = key.split("|");
-                var host          = parts[0];
-                var jobDateRaw    = parts[1];   // raw UTC value — matches what's stored in index
-                var rowReviewType = (selectedMeta[key] && selectedMeta[key].compliance_review_type) || "";
-                var rowDevice     = (selectedMeta[key] && selectedMeta[key].device)                 || "";
-                var rowDepartment = (selectedMeta[key] && selectedMeta[key].department)             || "";
-                var rowGroup      = (selectedMeta[key] && selectedMeta[key].group)                  || "";
+                var parts = key.split("|");
 
                 return service.request(
                     "signoff",
@@ -517,55 +546,85 @@ require([
                     null,
                     null,
                     JSON.stringify({
-                        hostname:               host,
-                        date_of_job:            jobDateRaw,     // raw value so join works
-                        compliance_review_type: rowReviewType,
-                        device:                 rowDevice,
-                        department:             rowDepartment,
-                        group:                  rowGroup
+                        hostname:               parts[0],
+                        date_of_job:            parts[1],
+                        compliance_review_type: (selectedMeta[key] && selectedMeta[key].compliance_review_type) || "",
+                        device:                 (selectedMeta[key] && selectedMeta[key].device)                 || "",
+                        department:             (selectedMeta[key] && selectedMeta[key].department)             || "",
+                        group:                  (selectedMeta[key] && selectedMeta[key].group)                  || ""
                     }),
                     { "Content-Type": "application/json" },
                     null
-                ).then(function(r) {
-                    return typeof r === "string" ? JSON.parse(r) : r;
+                )
+                .then(function(r) {
+                    var result = typeof r === "string" ? JSON.parse(r) : r;
+
+                    // This row responded — update it immediately
+                    allRows.forEach(function(row) {
+                        if (
+                            row.hostname               === parts[0] &&
+                            row.date_of_job_raw        === parts[1] &&
+                            row.compliance_review_type === parts[2] &&
+                            row.device                 === parts[3]
+                        ) {
+                            row._pending = false;  // stop spinner for this row
+                            if (result.status === "ok") {
+                                row.reviewed_by_info = reviewer;
+                                row.review_date_info = reviewDateSGT;
+                            } else {
+                                failed.push(key);
+                            }
+                        }
+                    });
+                    renderPage();  // re-render immediately for this row
+                    return result;
+                })
+                .catch(function(err) {
+                    // This individual row failed
+                    allRows.forEach(function(row) {
+                        if (
+                            row.hostname               === parts[0] &&
+                            row.date_of_job_raw        === parts[1] &&
+                            row.compliance_review_type === parts[2] &&
+                            row.device                 === parts[3]
+                        ) {
+                            row._pending = false;  // stop spinner
+                        }
+                    });
+                    failed.push(key);
+                    renderPage();
+                    console.error("Signoff error for " + parts[0] + ":", err);
+                    return { status: "error" };
                 });
             });
 
-            Promise.all(promises)
-                .then(function(results) {
-                    var failed = results.filter(function(r) { return r.status !== "ok"; });
-                    if (failed.length > 0) throw new Error(failed[0].message || "Unknown error");
-
-                    btn.textContent      = "Mark Selected as Reviewed";
+            // ── Wait for all to settle then show final summary ──────────────────
+            Promise.allSettled(promises).then(function() {
+                if (failed.length === 0) {
+                    // All succeeded
                     btn.disabled         = true;
                     btn.style.background = "#9ca3af";
-
-                    // Show host (reviewType) in success message
-                    var uniqueNames = Array.from(new Set(
-                        keys.map(function(k) {
-                            var p = k.split("|");
-                            return p[0] + " (" + p[2] + ")";
-                        })
-                    ));
-
-                    selected     = {};
-                    selectedMeta = {};
-                    updateActionBar();
-
-
-                    // Save current page before refresh
-                    var savedPage = currentPage;
-
-                    setTimeout(function() { runAuditSearch(savedPage); }, CONFIG.ui.refreshDelay);
-                })
-                .catch(function(err) {
-                    console.error("Signoff error:", err);
-                    showFeedback("Error: " + (err.message || "Unknown error"), "error");
-                    btn.textContent      = "Mark Selected as Reviewed";
+                    showFeedback(
+                        keys.length + " host(s) marked as reviewed by " + reviewer,
+                        "success"
+                    );
+                } else if (failed.length === keys.length) {
+                    // All failed
                     btn.disabled         = false;
                     btn.style.background = "#1d4ed8";
                     btn.style.opacity    = "1";
-                });
+                    showFeedback("All signoffs failed — please try again.", "error");
+                } else {
+                    // Partial — some succeeded some failed
+                    btn.disabled         = false;
+                    btn.style.background = "#1d4ed8";
+                    btn.style.opacity    = "1";
+                    showFeedback(
+                        (keys.length - failed.length) + " succeeded, " + failed.length + " failed — retry the failed rows.",
+                        "warning"
+                    );
+                }
+            });
         });
     }
 });

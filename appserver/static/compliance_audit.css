@@ -97,3 +97,19 @@
     border-color: #1d4ed8;
     font-weight: bold;
 }
+
+
+/* ── Pending rows (spinner while signoff request is in flight) ── */
+.audit-table tr.pending {
+    opacity: 0.5;
+    pointer-events: none;
+}
+
+.audit-table tr.pending td::after {
+    content: "";
+}
+
+.audit-table tr.pending td:first-child::after {
+    content: " ⏳";
+    font-size: 12px;
+}
