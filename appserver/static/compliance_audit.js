@@ -442,6 +442,57 @@ require([
         }
     }
 
+    // ── Export CSV ──────────────────────────────────────────────────────────
+    function exportToCSV() {
+        if (!allRows || allRows.length === 0) {
+            showFeedback("No data to export.", "warning");
+            return;
+        }
+
+        // Build header row from current COLS
+        var headers = ["#"].concat(COLS.map(function(c) { return c.label; }));
+        var csvRows = [headers.join(",")];
+
+        allRows.forEach(function(row, i) {
+            var values = [i + 1].concat(COLS.map(function(c) {
+                var val = row[c.key] || "-";
+                // Wrap in quotes and escape any existing quotes
+                return '"' + String(val).replace(/"/g, '""') + '"';
+            }));
+            csvRows.push(values.join(","));
+        });
+
+        var csvContent = csvRows.join("\n");
+        var blob       = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+        var url        = URL.createObjectURL(blob);
+        var link       = document.createElement("a");
+
+        // Build filename from all current filters
+        var f_catalog  = tokens.get("service_catalog") || "all";
+        var f_year     = tokens.get("filter_year")     || "all";
+        var f_month    = tokens.get("filter_month")    || "all";
+        var f_device   = tokens.get("filter_device")   || "all";
+        var f_dept     = tokens.get("filter_dept")     || "all";
+        var f_group    = tokens.get("filter_group")    || "all";
+        var f_host     = tokens.get("filter_host")     || "all";
+        var timestamp  = new Date().toISOString().slice(0, 10);
+        var filename   = [
+            "compliance_audit",
+            f_catalog, f_year, f_month, f_device, f_dept, f_group, f_host,
+            timestamp
+        ].join("_").replace(/\*/g, "all") + ".csv";
+
+        link.setAttribute("href", url);
+        link.setAttribute("download", filename);
+        link.style.display = "none";
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+
+        showFeedback("Exported " + allRows.length + " rows to CSV.", "success");
+    }
+
     // ── Filter persistence via URL params ──────────────────────────────────
     // Splunk natively reads form.* URL params and sets tokens before any JS
     // or XML init runs — so this approach survives page refresh reliably.
@@ -478,6 +529,12 @@ require([
         saveFilters();
         runAuditSearch();
     });
+
+    // ── Export button ───────────────────────────────────────────────────────
+    var exportBtn = document.getElementById("export-btn");
+    if (exportBtn) {
+        exportBtn.addEventListener("click", exportToCSV);
+    }
 
     // ── Review button ───────────────────────────────────────────────────────
     var btn = document.getElementById("review-btn");
