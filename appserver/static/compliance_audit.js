@@ -159,6 +159,12 @@ require([
         var pager = document.getElementById("audit-pager");
         if (!pager) return;
 
+        // Hide pager when no rows
+        if (allRows.length === 0) {
+            pager.innerHTML = "";
+            return;
+        }
+
         var total = totalPages();
         var start = (currentPage - 1) * PAGE_SIZE + 1;
         var end   = Math.min(currentPage * PAGE_SIZE, allRows.length);
@@ -208,7 +214,12 @@ require([
         if (!container) return;
 
         if (!rows || rows.length === 0) {
-            container.innerHTML = "<p style='padding:12px;color:#6b7280;font-size:13px;'>No results found.</p>";
+            // Show header with empty body rather than a text message
+            var emptyHtml = "<table class='audit-table'><thead><tr>";
+            emptyHtml += "<th style='width:32px;'></th>";
+            COLS.forEach(function(c) { emptyHtml += "<th>" + c.label + "</th>"; });
+            emptyHtml += "</tr></thead><tbody></tbody></table>";
+            container.innerHTML = emptyHtml;
             updateActionBar();
             return;
         }
@@ -306,6 +317,9 @@ require([
     function renderTable(rows, restorePage) {
         allRows     = rows || [];
         currentPage = (restorePage && restorePage <= totalPages()) ? restorePage : 1;
+        // Always clear the loading status text when table renders
+        var statusEl = document.getElementById("audit-search-status");
+        if (statusEl) { statusEl.textContent = ""; statusEl.style.opacity = "0"; }
         renderPage();
     }
 
@@ -394,10 +408,13 @@ require([
         }, { tokens: false });
 
         currentSearchManager.on("search:done", function() {
-            var results = currentSearchManager.data("results", { offset: 0,  count: 0  });
+            var results = currentSearchManager.data("results", { offset: 0, count: 0 });
+            var dataFired = false;
+
             results.on("data", function() {
+                dataFired = true;
                 var d = results.data();
-                if (!d || !d.rows || !d.fields) {
+                if (!d || !d.rows || !d.fields || d.rows.length === 0) {
                     renderTable([]);
                     return;
                 }
@@ -409,6 +426,13 @@ require([
                 renderTable(rows, restorePage);
                 showFeedback("Audit data loaded", "success");
             });
+
+            // If data event never fires (zero results), clear loading state
+            setTimeout(function() {
+                if (!dataFired) {
+                    renderTable([]);
+                }
+            }, 500);
         });
 
         currentSearchManager.on("search:error", function(err) {
