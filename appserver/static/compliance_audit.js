@@ -615,6 +615,12 @@ require([
                 });
             });
 
+            // Snapshot meta before clearing — requests fire after clear
+            var metaSnapshot = {};
+            keys.forEach(function(key) {
+                metaSnapshot[key] = selectedMeta[key] || {};
+            });
+
             // Clear selection immediately so checkboxes uncheck during spinner
             selected     = {};
             selectedMeta = {};
@@ -628,6 +634,7 @@ require([
             // ── Fire one request per row — each resolves independently ──────────
             var promises = keys.map(function(key) {
                 var parts = key.split("|");
+                var meta  = metaSnapshot[key];
 
                 return service.request(
                     "signoff",
@@ -637,10 +644,10 @@ require([
                     JSON.stringify({
                         hostname:               parts[0],
                         date_of_job:            parts[1],
-                        compliance_review_type: (selectedMeta[key] && selectedMeta[key].compliance_review_type) || "",
-                        device:                 (selectedMeta[key] && selectedMeta[key].device)                 || "",
-                        department:             (selectedMeta[key] && selectedMeta[key].department)             || "",
-                        group:                  (selectedMeta[key] && selectedMeta[key].group)                  || ""
+                        compliance_review_type: meta.compliance_review_type || "",
+                        device:                 meta.device                 || "",
+                        department:             meta.department              || "",
+                        group:                  meta.group                  || ""
                     }),
                     { "Content-Type": "application/json" },
                     null
