@@ -232,8 +232,9 @@
             | where (department="$filter_dept$"               OR "$filter_dept$"="*")
             | where (reviewed_by="$filter_reviewer$"          OR "$filter_reviewer$"="*")
 
-            | eval "Review Date"     = strftime(_time, "%d %b %Y %H:%M:%S")
-            | eval "Audit Job Date" = strftime(strptime(date_of_job, "%Y-%m-%dT%H:%M:%SZ") + 28800, "%d %b %Y %H:%M SGT")
+            | sort - _time
+            | eval "Review Date"    = strftime(_time, "%Y-%m-%d %H:%M:%S")
+            | eval "Audit Job Date" = strftime(strptime(date_of_job, "%Y-%m-%dT%H:%M:%SZ") + 28800, "%Y-%m-%d %H:%M")
 
             | table hostname device department group reviewed_by remarks "Review Date" "Audit Job Date"
 
@@ -243,9 +244,6 @@
                      group       as "Group"
                      reviewed_by as "Reviewed By"
                      remarks     as "Remarks"
-
-
-            | sort -"Review Date"
           </query>
 
           <earliest>-3650d</earliest>

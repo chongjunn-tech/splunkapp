@@ -362,7 +362,7 @@ require([
                 'index=' + CONFIG.indexes.auditIndex + ' sourcetype="' + CONFIG.sourcetypes.auditLogs + '" earliest=-3y latest=now',
                 '| spath input=_raw path=time output=date_of_job_raw',
 
-                '| eval date_of_job = strftime(strptime(date_of_job_raw, "%Y-%m-%dT%H:%M:%S") + 28800, "%d %b %Y %H:%M SGT")',
+                '| eval date_of_job = strftime(strptime(date_of_job_raw, "%Y-%m-%dT%H:%M:%S") + 28800, "%Y-%m-%d %H:%M")',
 
             ]
             .concat(spathLines)
@@ -383,7 +383,7 @@ require([
                 '    | sort - _time',
                 '    | dedup hostname date_of_job_raw device compliance_review_type',
                 '    | eval reviewed_by_info = reviewed_by',
-                '    | eval review_date_info = strftime(_time, "%d %b %Y %H:%M SGT")',
+                '    | eval review_date_info = strftime(_time, "%Y-%m-%d %H:%M")',
                 '    | table hostname date_of_job_raw device compliance_review_type reviewed_by_info review_date_info',
                 '  ]',
                 '| eval reviewed_by_info = coalesce(reviewed_by_info, "-")',
@@ -596,9 +596,11 @@ require([
             var sgtTime       = new Date(now.getTime() + 8 * 60 * 60 * 1000);
             var day           = String(sgtTime.getUTCDate()).padStart(2, "0");
             var monthNames    = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
-            var reviewDateSGT = day + " " + monthNames[sgtTime.getUTCMonth()] + " " + sgtTime.getUTCFullYear()
+            var reviewDateSGT = sgtTime.getUTCFullYear()
+                              + "-" + String(sgtTime.getUTCMonth() + 1).padStart(2, "0")
+                              + "-" + day
                               + " " + String(sgtTime.getUTCHours()).padStart(2, "0")
-                              + ":" + String(sgtTime.getUTCMinutes()).padStart(2, "0") + " SGT";
+                              + ":" + String(sgtTime.getUTCMinutes()).padStart(2, "0");
 
             // ── Set all selected rows to pending (spinner) ──────────────────────
             keys.forEach(function(key) {
