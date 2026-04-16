@@ -189,6 +189,27 @@
       <fieldForValue>hostname</fieldForValue>
     </input>
 
+    <!-- Reviewer filter -->
+    <input type="dropdown" token="filter_reviewer" searchWhenChanged="true">
+      <label>Reviewer</label>
+      <default>all</default>
+      <choice value="all">-- All --</choice>
+      <choice value="*">-- All Reviewers --</choice>
+      <choice value="unreviewed">-- Not Yet Reviewed --</choice>
+      <search>
+        <query>
+          index=automation_local_user_group_audit sourcetype="user_audit_signoff" event_type="audit_signoff" earliest=-3y latest=now
+          | where compliance_review_type="$service_catalog$"
+          | stats count by reviewed_by
+          | fields reviewed_by
+        </query>
+        <earliestTime>-3y</earliestTime>
+        <latestTime>now</latestTime>
+      </search>
+      <fieldForLabel>reviewed_by</fieldForLabel>
+      <fieldForValue>reviewed_by</fieldForValue>
+    </input>
+
   </fieldset>
 
   <!-- AUDIT TABLE — rendered by JS for checkbox support -->

@@ -327,6 +327,7 @@ require([
         var host        = tokens.get("filter_host")    || "*";
         var device      = tokens.get("filter_device")  || "*";
         var group       = tokens.get("filter_group")   || "*";
+        var reviewer    = tokens.get("filter_reviewer") || "all";
 
         var cfg  = REVIEW_CONFIG[reviewType] || REVIEW_CONFIG["user"];
         COLS     = cfg.cols;
@@ -373,6 +374,12 @@ require([
                 '  ]',
                 '| eval reviewed_by_info = coalesce(reviewed_by_info, "-")',
                 '| eval review_date_info = coalesce(review_date_info, "-")',
+                '| where (',
+                '  ("' + reviewer + '"="all")',
+                '  OR ("' + reviewer + '"="*" AND reviewed_by_info!="-" AND isnotnull(reviewed_by_info))',
+                '  OR ("' + reviewer + '"="unreviewed" AND (reviewed_by_info="-" OR isnull(reviewed_by_info)))',
+                '  OR ("' + reviewer + '"!="all" AND "' + reviewer + '"!="*" AND "' + reviewer + '"!="unreviewed" AND reviewed_by_info="' + reviewer + '")',
+                ')',
                 '| dedup hostname date_of_job_raw device compliance_review_type',
                 '| sort department hostname -date_of_job_raw',
                 '| table ' + cfg.tableFields
@@ -475,10 +482,11 @@ require([
         var f_dept     = tokens.get("filter_dept")     || "all";
         var f_group    = tokens.get("filter_group")    || "all";
         var f_host     = tokens.get("filter_host")     || "all";
+        var f_reviewer = tokens.get("filter_reviewer") || "all";
         var timestamp  = new Date().toISOString().slice(0, 10);
         var filename   = [
             "compliance_audit",
-            f_catalog, f_year, f_month, f_device, f_dept, f_group, f_host,
+            f_catalog, f_year, f_month, f_device, f_dept, f_group, f_host, f_reviewer,
             timestamp
         ].join("_").replace(/\*/g, "all") + ".csv";
 
@@ -498,7 +506,7 @@ require([
     // or XML init runs — so this approach survives page refresh reliably.
     var FILTER_KEYS = [
         "service_catalog", "filter_year", "filter_month",
-        "filter_device", "filter_dept", "filter_group", "filter_host"
+        "filter_device", "filter_dept", "filter_group", "filter_host", "filter_reviewer"
     ];
 
     function saveFilters() {
@@ -525,7 +533,7 @@ require([
     // ── Token listeners ─────────────────────────────────────────────────────
     var savedPage = getSavedPage();
     runAuditSearch(savedPage);
-    tokens.on("change:service_catalog change:filter_year change:filter_month change:filter_device change:filter_dept change:filter_group change:filter_host", function() {
+    tokens.on("change:service_catalog change:filter_year change:filter_month change:filter_device change:filter_dept change:filter_group change:filter_host change:filter_reviewer", function() {
         saveFilters();
         runAuditSearch();
     });
