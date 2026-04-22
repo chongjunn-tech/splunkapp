@@ -185,8 +185,65 @@ require([
         html += "<button class='pager-btn' id='pager-next' " + (currentPage === total  ? "disabled" : "") + ">›</button>";
         html += "<button class='pager-btn' id='pager-last' " + (currentPage === total  ? "disabled" : "") + ">»</button>";
         pager.innerHTML = html;
+    }
 
-        pager.addEventListener("click", function(e) {
+    // ── Checkbox listener — registered once, not inside renderTableRows ──
+    var containerEl = document.getElementById("audit-table-container");
+    if (containerEl) {
+        containerEl.addEventListener("change", function(e) {
+            if (e.target && e.target.classList.contains("row-chk")) {
+                var key = e.target.getAttribute("data-host")        + "|"
+                        + e.target.getAttribute("data-date-raw")    + "|"
+                        + e.target.getAttribute("data-review-type") + "|"
+                        + e.target.getAttribute("data-device");
+
+                if (e.target.checked) {
+                    selected[key]     = true;
+                    selectedMeta[key] = {
+                        compliance_review_type: e.target.getAttribute("data-review-type"),
+                        device:                 e.target.getAttribute("data-device"),
+                        department:             e.target.getAttribute("data-department"),
+                        group:                  e.target.getAttribute("data-group"),
+                        date_of_job_raw:        e.target.getAttribute("data-date-raw")
+                    };
+                } else {
+                    delete selected[key];
+                    delete selectedMeta[key];
+                }
+                updateActionBar();
+            }
+
+            if (e.target && e.target.id === "chk-all") {
+                document.querySelectorAll(".row-chk").forEach(function(b) {
+                    var key = b.getAttribute("data-host")        + "|"
+                            + b.getAttribute("data-date-raw")    + "|"
+                            + b.getAttribute("data-review-type") + "|"
+                            + b.getAttribute("data-device");
+
+                    b.checked = e.target.checked;
+                    if (e.target.checked) {
+                        selected[key]     = true;
+                        selectedMeta[key] = {
+                            compliance_review_type: b.getAttribute("data-review-type"),
+                            device:                 b.getAttribute("data-device"),
+                            department:             b.getAttribute("data-department"),
+                            group:                  b.getAttribute("data-group"),
+                            date_of_job_raw:        b.getAttribute("data-date-raw")
+                        };
+                    } else {
+                        delete selected[key];
+                        delete selectedMeta[key];
+                    }
+                });
+                updateActionBar();
+            }
+        });
+    }
+
+    // ── Pager click — registered once, not inside renderPager ────────────
+    var pagerEl = document.getElementById("audit-pager");
+    if (pagerEl) {
+        pagerEl.addEventListener("click", function(e) {
             var btn = e.target.closest(".pager-btn");
             if (!btn || btn.disabled) return;
             var id = btn.id;
@@ -270,47 +327,6 @@ require([
 
         html += "</tbody></table>";
         container.innerHTML = html;
-
-        // Event delegation — one listener handles all checkboxes
-        container.addEventListener("change", function(e) {
-            if (e.target && e.target.classList.contains("row-chk")) {
-                var key = e.target.getAttribute("data-host")        + "|"
-                        + e.target.getAttribute("data-date-raw")    + "|"
-                        + e.target.getAttribute("data-review-type") + "|"
-                        + e.target.getAttribute("data-device");
-
-                selected[key]     = e.target.checked;
-                selectedMeta[key] = {
-                    compliance_review_type: e.target.getAttribute("data-review-type"),
-                    device:                 e.target.getAttribute("data-device"),
-                    department:             e.target.getAttribute("data-department"),
-                    group:                  e.target.getAttribute("data-group"),
-                    date_of_job_raw:        e.target.getAttribute("data-date-raw")
-                };
-                updateActionBar();
-            }
-
-            if (e.target && e.target.id === "chk-all") {
-                document.querySelectorAll(".row-chk").forEach(function(b) {
-                    var key = b.getAttribute("data-host")        + "|"
-                            + b.getAttribute("data-date-raw")    + "|"
-                            + b.getAttribute("data-review-type") + "|"
-                            + b.getAttribute("data-device");
-
-                    b.checked         = e.target.checked;
-                    selected[key]     = e.target.checked;
-                    selectedMeta[key] = {
-                        compliance_review_type: b.getAttribute("data-review-type"),
-                        device:                 b.getAttribute("data-device"),
-                        department:             b.getAttribute("data-department"),
-                        group:                  b.getAttribute("data-group"),
-                        date_of_job_raw:        b.getAttribute("data-date-raw")
-                    };
-                });
-                updateActionBar();
-            }
-        });
-
         updateActionBar();
     }
 
@@ -377,6 +393,8 @@ require([
             ])
             .concat(evalLines)
             .concat([
+                '| sort hostname device department group -date_of_job_raw',
+                '| dedup hostname device department group',
                 '| join type=left hostname date_of_job_raw device compliance_review_type [',
                 '    search index=automation_local_user_group_audit sourcetype="user_audit_signoff" event_type="audit_signoff" earliest=-3y latest=now',
                 '    | rename date_of_job as date_of_job_raw',
@@ -507,7 +525,11 @@ require([
         var f_group    = tokens.get("filter_group")    || "all";
         var f_host     = tokens.get("filter_host")     || "all";
         var f_reviewer = tokens.get("filter_reviewer") || "all";
-        var timestamp  = new Date().toISOString().slice(0, 10);
+        var _now       = new Date();
+        var timestamp  = _now.toISOString().slice(0, 10)
+                       + "T" + String(_now.getHours()).padStart(2, "0")
+                       + String(_now.getMinutes()).padStart(2, "0")
+                       + String(_now.getSeconds()).padStart(2, "0");
         var filename   = [
             "compliance_audit",
             f_catalog, f_year, f_month, f_device, f_dept, f_group, f_host, f_reviewer,
