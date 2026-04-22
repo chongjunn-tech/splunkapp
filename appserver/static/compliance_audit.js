@@ -350,6 +350,11 @@ require([
             currentSearchManager = null;
         }
 
+        // Free memory from previous result set immediately
+        allRows      = [];
+        selected     = {};
+        selectedMeta = {};
+
         var reviewType  = tokens.get("service_catalog") || "user";
         var filterYear  = tokens.get("filter_year")    || "*";
         var filterMonth = tokens.get("filter_month")   || "*";
@@ -436,13 +441,23 @@ require([
                     renderTable([]);
                     return;
                 }
+                // Only keep fields needed for display and sign-off — discard the rest
+                var keepFields = {};
+                var cfg2 = REVIEW_CONFIG[tokens.get("service_catalog") || "user"] || REVIEW_CONFIG["user"];
+                cfg2.cols.forEach(function(c) { keepFields[c.key] = true; });
+                ["hostname","date_of_job_raw","compliance_review_type","device","department","group"].forEach(function(f) {
+                    keepFields[f] = true;
+                });
+
                 var rows = d.rows.map(function(row) {
                     var obj = {};
-                    d.fields.forEach(function(f, i) { obj[f] = row[i]; });
+                    d.fields.forEach(function(f, i) {
+                        if (keepFields[f]) obj[f] = row[i] || "";
+                    });
                     return obj;
                 });
                 renderTable(rows, restorePage);
-                showFeedback("Audit data loaded", "success");
+                showFeedback("Audit data loaded (" + rows.length + " rows)", "success");
             });
 
             // If data event never fires (zero results), clear loading state
