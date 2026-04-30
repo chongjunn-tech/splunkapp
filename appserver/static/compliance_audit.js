@@ -14,6 +14,7 @@ require([
     var allRows              = [];
     var currentSearchManager = null;
     var COLS                 = [];
+    var hiddenCols           = JSON.parse(sessionStorage.getItem("audit_hidden_cols") || "{}");
 
     // var COLS = [
     //     { key: "date_of_job",            label: "Date of Job" },
@@ -114,11 +115,12 @@ require([
         var container = document.getElementById("audit-table-container");
         var pager     = document.getElementById("audit-pager");
         if (container) {
+            var visCols = COLS.filter(function(c) { return !hiddenCols[c.key]; });
             var html = "<table class='audit-table'><thead><tr>";
             html += "<th style='width:32px;'></th>";
-            COLS.forEach(function(c) { html += "<th>" + c.label + "</th>"; });
+            visCols.forEach(function(c) { html += "<th>" + c.label + "</th>"; });
             html += "</tr></thead><tbody>";
-            html += "<tr><td colspan='" + (COLS.length + 1) + "' style='text-align:center;padding:32px;color:#6b7280;font-size:13px;'>";
+            html += "<tr><td colspan='" + (visCols.length + 1) + "' style='text-align:center;padding:32px;color:#6b7280;font-size:13px;'>";
             html += "&#9203; Loading audit data...</td></tr>";
             html += "</tbody></table>";
             container.innerHTML = html;
@@ -190,6 +192,23 @@ require([
     // ── Checkbox listener — registered once, not inside renderTableRows ──
     var containerEl = document.getElementById("audit-table-container");
     if (containerEl) {
+        // Column hide / show all
+        containerEl.addEventListener("click", function(e) {
+            var hideBtn = e.target.closest(".col-hide-btn");
+            if (hideBtn) {
+                hiddenCols[hideBtn.getAttribute("data-col")] = true;
+                sessionStorage.setItem("audit_hidden_cols", JSON.stringify(hiddenCols));
+                renderPage();
+                return;
+            }
+            var showAll = e.target.closest("#col-show-all");
+            if (showAll) {
+                hiddenCols = {};
+                sessionStorage.removeItem("audit_hidden_cols");
+                renderPage();
+            }
+        });
+
         containerEl.addEventListener("change", function(e) {
             if (e.target && e.target.classList.contains("row-chk")) {
                 var key = e.target.getAttribute("data-host")        + "|"
@@ -240,7 +259,7 @@ require([
         });
     }
 
-    // ── Pager click — registered once, not inside renderPager ────────────
+    // ── Pager click — registered once on stable parent ──────────────────
     var pagerEl = document.getElementById("audit-pager");
     if (pagerEl) {
         pagerEl.addEventListener("click", function(e) {
@@ -271,22 +290,35 @@ require([
         if (!container) return;
 
         if (!rows || rows.length === 0) {
-            // Show header with empty body rather than a text message
+            var visibleCols = COLS.filter(function(c) { return !hiddenCols[c.key]; });
             var emptyHtml = "<table class='audit-table'><thead><tr>";
             emptyHtml += "<th style='width:32px;'></th>";
-            COLS.forEach(function(c) { emptyHtml += "<th>" + c.label + "</th>"; });
+            visibleCols.forEach(function(c) { emptyHtml += "<th>" + c.label + "</th>"; });
             emptyHtml += "</tr></thead><tbody></tbody></table>";
             container.innerHTML = emptyHtml;
             updateActionBar();
             return;
         }
 
+        var visibleCols = COLS.filter(function(c) { return !hiddenCols[c.key]; });
+        var hasHidden   = COLS.some(function(c) { return hiddenCols[c.key]; });
         var html = "<table class='audit-table'><thead><tr>";
         html += "<th style='width:32px;'><input type='checkbox' id='chk-all' title='Select all'></th>";
-        COLS.forEach(function(c) {
-            var style = c.key === "hostname"? ` style='min-width:${CONFIG.ui.hostnameWidth}px;'`: "";
-            html += "<th" + style + ">" + c.label + "</th>";
+        visibleCols.forEach(function(c) {
+            var minW = c.key === "hostname" ? "min-width:" + CONFIG.ui.hostnameWidth + "px;" : "";
+            html += "<th style='" + minW + "white-space:nowrap;'>"
+                  + "<span style='display:inline-flex;align-items:center;gap:6px;'>"
+                  + c.label
+                  + "<span class='col-hide-btn' data-col='" + c.key + "'"
+                  + " title='Hide column'"
+                  + " style='cursor:pointer;color:#9ca3af;font-size:11px;font-weight:bold;"
+                  + "padding:0 3px;border-radius:3px;'>&#x2715;</span>"
+                  + "</span></th>";
         });
+        if (hasHidden) {
+            html += "<th><span id='col-show-all' style='cursor:pointer;font-size:11px;"
+                  + "color:#1d4ed8;white-space:nowrap;'>&#x2b; Show all</span></th>";
+        }
         html += "</tr></thead><tbody>";
 
         rows.forEach(function(row) {
@@ -319,7 +351,7 @@ require([
                 + " data-group='"        + escHtml(group)        + "'"
                 + " " + checked + "></td>";
 
-            COLS.forEach(function(c) {
+            visibleCols.forEach(function(c) {
                 html += "<td>" + escHtml(row[c.key] || "-") + "</td>";
             });
             html += "</tr>";
