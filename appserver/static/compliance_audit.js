@@ -18,9 +18,9 @@ require([
 
     // ── Sync review_type_label on load in case service_catalog was restored from URL ──
     var LABEL_MAP = {
-        user:    "Compliance - Local Users Review",
-        group:   "Compliance - Local Group Review",
-        account: "Compliance - Account Review"
+        user:    "Asset - Local User Review",
+        group:   "Asset - Local Group Review",
+        account: "Account - Access Review"
     };
     function syncLabel() {
         var cat = tokens.get("service_catalog") || "user";
@@ -355,22 +355,61 @@ require([
         var container = document.getElementById("audit-table-container");
         if (!container) return;
 
+        // Horizontal scroll for wide schemas
+        container.style.overflowX = "auto";
+        container.style.width     = "100%";
+
+        // Per-column min-widths
+        var COL_WIDTHS = {
+            date_of_job:                 "120px",
+            job_id:                      "110px",
+            asset_id:                    "120px",
+            device:                      "90px",
+            department:                  "110px",
+            group:                       "90px",
+            account_name:                "110px",
+            account_type:                "90px",
+            account_origin:              "100px",
+            account_status:              "90px",
+            role_name:                   "90px",
+            role_scope:                  "80px",
+            last_login:                  "120px",
+            custodian:                   "100px",
+            reviewer_designation:        "130px",
+            review_outcome:              "110px",
+            reviewed_by:                 "90px",
+            reviewed_at:                 "120px",
+            comments:                    "160px",
+            additional_users:            "130px",
+            locked_accounts:             "90px",
+            expired_accounts:            "90px",
+            interactive_accounts:        "90px",
+            non_interactive_accounts:    "110px",
+            password_violation_accounts: "150px",
+            baseline_accounts:           "120px",
+            additional_groups:           "120px",
+            wheel_groups:                "100px",
+            baseline_groups:             "110px"
+        };
+
         if (!rows || rows.length === 0) {
-            // Show header with empty body rather than a text message
-            var emptyHtml = "<table class='audit-table'><thead><tr>";
-            emptyHtml += "<th style='width:32px;'></th>";
-            COLS.forEach(function(c) { emptyHtml += "<th>" + c.label + "</th>"; });
+            var emptyHtml = "<table class='audit-table' style='min-width:100%;white-space:nowrap;border-collapse:collapse;'><thead><tr>";
+            emptyHtml += "<th style='width:32px;min-width:32px;'></th>";
+            COLS.forEach(function(c) {
+                var w = COL_WIDTHS[c.key] || "100px";
+                emptyHtml += "<th style='min-width:" + w + ";padding:6px 8px;'>" + c.label + "</th>";
+            });
             emptyHtml += "</tr></thead><tbody></tbody></table>";
             container.innerHTML = emptyHtml;
             updateActionBar();
             return;
         }
 
-        var html = "<table class='audit-table'><thead><tr>";
-        html += "<th style='width:32px;'><input type='checkbox' id='chk-all' title='Select all'></th>";
+        var html = "<table class='audit-table' style='min-width:100%;white-space:nowrap;border-collapse:collapse;'><thead><tr>";
+        html += "<th style='width:32px;min-width:32px;'><input type='checkbox' id='chk-all' title='Select all'></th>";
         COLS.forEach(function(c) {
-            var style = c.key === "asset_id"? ` style='min-width:${CONFIG.ui.hostnameWidth}px;'`: "";
-            html += "<th" + style + ">" + c.label + "</th>";
+            var w = COL_WIDTHS[c.key] || "100px";
+            html += "<th style='min-width:" + w + ";padding:6px 8px;'>" + c.label + "</th>";
         });
         html += "</tr></thead><tbody>";
 
@@ -684,7 +723,7 @@ require([
         var f_device   = tokens.get("filter_device")   || "all";
         var f_dept     = tokens.get("filter_dept")     || "all";
         var f_group    = tokens.get("filter_group")    || "all";
-        var f_asset     = tokens.get("filter_asset")     || "all";
+        var f_host     = tokens.get("filter_asset")     || "all";
         var f_reviewer = tokens.get("filter_reviewer") || "all";
         var _now       = new Date();
         var timestamp  = _now.toISOString().slice(0, 10)
@@ -693,7 +732,7 @@ require([
                        + String(_now.getSeconds()).padStart(2, "0");
         var filename   = [
             "compliance_audit",
-            f_catalog, f_year, f_month, f_device, f_dept, f_group, f_asset, f_reviewer,
+            f_catalog, f_year, f_month, f_device, f_dept, f_group, f_host, f_reviewer,
             timestamp
         ].join("_").replace(/\*/g, "all") + ".csv";
 

@@ -1,9 +1,9 @@
 <form>
-  <label>Review History</label>
-  <description>Historical review records for Compliance Review.</description>
+  <label>Asset &amp; Account Compliance Review History</label>
+  <description>Asset-level review of local users and groups, and account-level review of individual account access.</description>
 
   <init>
-    <set token="review_type_label">Compliance - Local Users Review</set>
+    <set token="review_type_label">Asset - Local User Review</set>
     <set token="show_usergroup">true</set>
     <unset token="show_account"></unset>
   </init>
@@ -14,22 +14,22 @@
       <label>Service Catalog</label>
       <default>user</default>
       <initialValue>user</initialValue>
-      <choice value="user">Compliance - Local Users Review</choice>
-      <choice value="group">Compliance - Local Group Review</choice>
-      <choice value="account">Compliance - Account Review</choice>
+      <choice value="user">Asset - Local User Review</choice>
+      <choice value="group">Asset - Local Group Review</choice>
+      <choice value="account">Account - Access Review</choice>
       <change>
         <condition value="user">
-          <set token="review_type_label">Compliance - Local Users Review</set>
+          <set token="review_type_label">Asset - Local User Review</set>
           <set token="show_usergroup">true</set>
           <unset token="show_account"></unset>
         </condition>
         <condition value="group">
-          <set token="review_type_label">Compliance - Local Group Review</set>
+          <set token="review_type_label">Asset - Local Group Review</set>
           <set token="show_usergroup">true</set>
           <unset token="show_account"></unset>
         </condition>
         <condition value="account">
-          <set token="review_type_label">Compliance - Account Review</set>
+          <set token="review_type_label">Account - Access Review</set>
           <set token="show_account">true</set>
           <unset token="show_usergroup"></unset>
         </condition>
