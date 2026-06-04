@@ -7,6 +7,7 @@
 
   <init>
     <set token="review_type_label">Compliance - Local Users Review</set>
+    <eval token="review_type_label">case(service_catalog="group", "Compliance - Local Group Review", service_catalog="account", "Compliance - Account Review", true(), "Compliance - Local Users Review")</eval>
   </init>
 
   <fieldset submitButton="false" autoRun="true">

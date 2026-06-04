@@ -16,6 +16,19 @@ require([
     var currentSearchManager = null;
     var COLS                 = [];
 
+    // ── Sync review_type_label on load in case service_catalog was restored from URL ──
+    var LABEL_MAP = {
+        user:    "Compliance - Local Users Review",
+        group:   "Compliance - Local Group Review",
+        account: "Compliance - Account Review"
+    };
+    function syncLabel() {
+        var cat = tokens.get("service_catalog") || "user";
+        tokens.set("review_type_label", LABEL_MAP[cat] || LABEL_MAP["user"]);
+    }
+    syncLabel();
+    tokens.on("change:service_catalog", syncLabel);
+
     // var COLS = [
     //     { key: "date_of_job",            label: "Date of Job" },
     //     { key: "asset_id",               label: "Host" },
@@ -50,7 +63,7 @@ require([
                 { key: "baseline_accounts",           label: "Baseline Accounts" },
                 { key: "reviewed_by",                 label: "Reviewed By" },
                 { key: "reviewed_at",                 label: "Review Date" },
-                { key: "comments",                    label: "Comments" }
+                { key: "comments",                    label: "Comments", isComment: true }
             ],
             spathFields: [
                 { path: "additional_users{}",            output: "additional_users_mv" },
@@ -86,7 +99,7 @@ require([
                 { key: "baseline_groups",   label: "Baseline Groups" },
                 { key: "reviewed_by",       label: "Reviewed By" },
                 { key: "reviewed_at",       label: "Review Date" },
-                { key: "comments",          label: "Comments" }
+                { key: "comments",          label: "Comments", isComment: true }
             ],
             spathFields: [
                 { path: "additional_groups{}", output: "additional_groups_mv" },
@@ -123,7 +136,7 @@ require([
                 { key: "review_outcome",       label: "Review Outcome", isOutcome: true },
                 { key: "reviewed_by",          label: "Reviewed By" },
                 { key: "reviewed_at",          label: "Review Date" },
-                { key: "comments",             label: "Comments" }
+                { key: "comments",             label: "Comments", isComment: true }
             ],
             spathFields: [],
             mvEvals: [],
@@ -132,8 +145,12 @@ require([
     };
 
     // ── Outcome selections for account_audit rows ────────────────────────────
-    // key = uniqueKey, value = "Retain" | "Revoke" | "Lock"
+    // key = record_id, value = "Retain" | "Revoke" | "Lock"
     var rowOutcomes = {};
+
+    // ── Free-text comments per row ───────────────────────────────────────────
+    // key = record_id, value = string
+    var rowComments = {};
 
     function escHtml(str) {
         return String(str)
@@ -239,7 +256,20 @@ require([
     // ── Checkbox listener — registered once, not inside renderTableRows ──
     var containerEl = document.getElementById("audit-table-container");
     if (containerEl) {
+        // Use 'input' for comment textareas — fires on every keystroke, not just on blur
+        containerEl.addEventListener("input", function(e) {
+            if (e.target && e.target.classList.contains("comment-input")) {
+                rowComments[e.target.getAttribute("data-key")] = e.target.value;
+            }
+        });
+
         containerEl.addEventListener("change", function(e) {
+            // ── Comment input fallback (blur) ──────────────────────────────────
+            if (e.target && e.target.classList.contains("comment-input")) {
+                rowComments[e.target.getAttribute("data-key")] = e.target.value;
+                return;
+            }
+
             // ── Outcome dropdown (account_audit only) ──────────────────────────
             if (e.target && e.target.classList.contains("outcome-select")) {
                 var key = e.target.getAttribute("data-key");
@@ -379,10 +409,22 @@ require([
                 + " " + checked + "></td>";
 
             COLS.forEach(function(c) {
-                if (c.isOutcome) {
+                if (c.isComment) {
+                    // Always editable — pre-fill with saved comment from last signoff or current input
+                    var currentComment = rowComments[uniqueKey] !== undefined
+                        ? rowComments[uniqueKey]
+                        : (row["comments"] && row["comments"] !== "-" ? row["comments"] : "");
+                    html += "<td>"
+                        + "<textarea class='comment-input' data-key='" + escHtml(uniqueKey) + "'"
+                        + " rows='2'"
+                        + " style='font-size:12px;padding:2px 4px;border:1px solid #d1d5db;border-radius:3px;width:180px;resize:vertical;'"
+                        + " placeholder='Enter comments...'>"
+                        + escHtml(currentComment)
+                        + "</textarea>"
+                        + "</td>";
+                } else if (c.isOutcome) {
                     // Always render as a dropdown — reviewed rows pre-select their saved outcome
                     var currentOutcome = rowOutcomes[uniqueKey] || row["review_outcome"] || "";
-                    console.log("[audit] render outcome uniqueKey=[" + uniqueKey + "] rowOutcomes=", rowOutcomes[uniqueKey], " row.review_outcome=[" + row["review_outcome"] + "] => currentOutcome=[" + currentOutcome + "]");
                     html += "<td>"
                         + "<select class='outcome-select' data-key='" + escHtml(uniqueKey) + "'"
                         + " style='font-size:12px;padding:2px 4px;border:1px solid #d1d5db;border-radius:3px;"
@@ -430,6 +472,7 @@ require([
         selected     = {};
         selectedMeta = {};
         rowOutcomes  = {};
+        rowComments  = {};
 
         var reviewType  = tokens.get("service_catalog") || "user";
         var filterYear  = tokens.get("filter_year")    || "*";
@@ -454,6 +497,11 @@ require([
         var evalLines = cfg.mvEvals.map(function(f) {
             return '| eval ' + f.field + ' = if(isnull(mvjoin(' + f.mv + ', ", ")) OR mvjoin(' + f.mv + ', ", ")="", "-", mvjoin(' + f.mv + ', ", "))';
         });
+
+        // Convert last_login to SGT for account audit
+        if (cfg.perAccount) {
+            evalLines.push('| eval last_login = if(isnotnull(last_login) AND last_login!="", strftime(strptime(last_login, "%Y-%m-%dT%H:%M:%S") + 28800, "%Y-%m-%d %H:%M"), last_login)');
+        }
 
         // Join and dedup on record_id — unique per audit row, eliminates multi-field key complexity
         var dedupFields  = "record_id";
@@ -484,6 +532,8 @@ require([
                 '    search index=automation_local_user_group_audit sourcetype="user_audit_signoff" event_type="audit_signoff" earliest=-3y latest=now',
                 '    | sort 0 - reviewed_at',
                 '    | dedup record_id',
+                '    | eval reviewed_at = strftime(strptime(reviewed_at, "%Y-%m-%dT%H:%M:%S.%f+00:00") + 28800, "%Y-%m-%d %H:%M")',
+                '    | eval reviewed_at = if(isnull(reviewed_at) OR reviewed_at="", strftime(strptime(reviewed_at, "%Y-%m-%dT%H:%M:%S+00:00") + 28800, "%Y-%m-%d %H:%M"), reviewed_at)',
                 '    | table record_id reviewed_by reviewed_at comments' + (cfg.perAccount ? ' review_outcome' : ''),
                 '  ]',
                 '| eval reviewed_by  = coalesce(reviewed_by, "-")',
@@ -535,14 +585,17 @@ require([
                     return obj;
                 });
 
-                // Pre-populate rowOutcomes from saved review_outcome values returned by the join
-                if (cfg2.perAccount) {
-                    rows.forEach(function(row) {
-                        if (row.record_id && row.review_outcome && row.review_outcome !== "-") {
+                // Pre-populate rowOutcomes and rowComments from saved values returned by the join
+                rows.forEach(function(row) {
+                    if (row.record_id) {
+                        if (cfg2.perAccount && row.review_outcome && row.review_outcome !== "-") {
                             rowOutcomes[row.record_id] = row.review_outcome;
                         }
-                    });
-                }
+                        if (row.comments && row.comments !== "-" && rowComments[row.record_id] === undefined) {
+                            rowComments[row.record_id] = row.comments;
+                        }
+                    }
+                });
 
                 renderTable(rows, restorePage);
                 showFeedback("Audit data loaded (" + rows.length + " rows)", "success");
@@ -707,6 +760,13 @@ require([
         btn.style.opacity    = "0.7";
 
         btn.addEventListener("click", function() {
+            // ── Flush any textarea values currently in the DOM into rowComments ──
+            // Protects against the case where the user hasn't triggered 'input' yet
+            document.querySelectorAll(".comment-input").forEach(function(el) {
+                var k = el.getAttribute("data-key");
+                if (k) rowComments[k] = el.value;
+            });
+
             var keys = Object.keys(selected).filter(function(k) { return selected[k]; });
             if (keys.length === 0) return;
 
@@ -770,7 +830,8 @@ require([
                     device:                 meta.device                 || "",
                     department:             meta.department              || "",
                     group:                  meta.group                  || "",
-                    review_outcome:         rowOutcomes[key]            || ""
+                    review_outcome:         rowOutcomes[key]            || "",
+                    comments:               rowComments[key]            || ""
                 };
 
                 // Merge all row fields into the payload so the signoff event is self-contained
@@ -778,7 +839,8 @@ require([
                     var reviewType2 = meta.compliance_review_type || "";
                     var cfg2 = REVIEW_CONFIG[reviewType2] || REVIEW_CONFIG["user"];
                     cfg2.cols.forEach(function(c) {
-                        if (c.isOutcome) return;
+                        if (c.isOutcome) return;  // handled separately via rowOutcomes
+                        if (c.isComment) return;   // handled separately via rowComments
                         if (["device","department","group"].indexOf(c.key) !== -1) return;
                         signoffPayload[c.key] = fullRow[c.key] || "";
                     });
@@ -803,10 +865,10 @@ require([
                         if (row.record_id === key) {
                             row._pending = false;
                             if (result.status === "ok") {
-                                row.reviewed_by = result.reviewer || reviewer;
-                                row.reviewed_at = reviewDateSGT;
-                                row.comments         = signoffPayload.comments || row.comments || "-";
-                                row.review_outcome   = rowOutcomes[key] || "";
+                                row.reviewed_by    = result.reviewer || reviewer;
+                                row.reviewed_at    = reviewDateSGT;
+                                row.comments       = rowComments[key] || "";
+                                row.review_outcome = rowOutcomes[key] || "";
                             } else {
                                 failed.push(key);
                             }
