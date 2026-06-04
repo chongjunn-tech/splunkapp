@@ -4,6 +4,8 @@
 
   <init>
     <set token="review_type_label">Compliance - Local Users Review</set>
+    <set token="show_usergroup">true</set>
+    <unset token="show_account"></unset>
   </init>
 
   <fieldset submitButton="false" autoRun="true">
@@ -18,12 +20,18 @@
       <change>
         <condition value="user">
           <set token="review_type_label">Compliance - Local Users Review</set>
+          <set token="show_usergroup">true</set>
+          <unset token="show_account"></unset>
         </condition>
         <condition value="group">
           <set token="review_type_label">Compliance - Local Group Review</set>
+          <set token="show_usergroup">true</set>
+          <unset token="show_account"></unset>
         </condition>
         <condition value="account">
           <set token="review_type_label">Compliance - Account Review</set>
+          <set token="show_account">true</set>
+          <unset token="show_usergroup"></unset>
         </condition>
         <set token="filter_year">*</set>
         <set token="form.filter_year">*</set>
@@ -218,50 +226,86 @@
   </fieldset>
 
   <row>
-    <panel>
+    <!-- User / Group history panel — hidden when account is selected -->
+    <panel depends="$show_usergroup$">
       <title>$review_type_label$ - Review History</title>
-
       <table>
         <search>
           <query>
             index=automation_local_user_group_audit sourcetype="user_audit_signoff"
             event_type="audit_signoff"
-
             | where compliance_review_type="$service_catalog$"
-            | eval asset_id = coalesce(asset_id, hostname)
             | eval asset_id = coalesce(asset_id, hostname)
             | where (strftime(_time, "%Y")="$filter_year$"    OR "$filter_year$"="*")
             | where (strftime(_time, "%m")="$filter_month$"   OR "$filter_month$"="*")
             | where (device="$filter_device$"                 OR "$filter_device$"="*")
             | where (group="$filter_group$"                   OR "$filter_group$"="*")
-            | where (asset_id="$filter_asset$"                 OR "$filter_asset$"="*")
+            | where (asset_id="$filter_asset$"                OR "$filter_asset$"="*")
             | where (department="$filter_dept$"               OR "$filter_dept$"="*")
             | where (reviewed_by="$filter_reviewer$"          OR "$filter_reviewer$"="*")
-
-            | sort - _time
-            | eval "Review Date"    = strftime(_time, "%Y-%m-%d %H:%M:%S")
-            | eval "Audit Job Date" = strftime(strptime(date_of_job, "%Y-%m-%dT%H:%M:%SZ") + 28800, "%Y-%m-%d %H:%M")
-
-            | table asset_id device department group reviewed_by remarks "Review Date" "Audit Job Date"
-
-            | rename asset_id    as "Asset ID"
-                     device      as "Device"
+            | sort - reviewed_at
+            | eval "Date of Job"  = coalesce(strftime(strptime(date_of_job, "%Y-%m-%dT%H:%M:%S") + 28800, "%Y-%m-%d %H:%M"), strftime(strptime(date_of_job, "%Y-%m-%dT%H:%M:%SZ") + 28800, "%Y-%m-%d %H:%M"))
+            | eval "Review Date"  = coalesce(strftime(strptime(reviewed_at, "%Y-%m-%dT%H:%M:%S.%f+00:00") + 28800, "%Y-%m-%d %H:%M"), strftime(strptime(reviewed_at, "%Y-%m-%dT%H:%M:%S+00:00") + 28800, "%Y-%m-%d %H:%M"))
+            | table "Date of Job" job_id asset_id device department group reviewed_by "Review Date" comments
+            | rename job_id      as "Job ID"
+                     asset_id    as "Asset ID"
+                     device      as "Device Type"
                      department  as "Department"
                      group       as "Group"
                      reviewed_by as "Reviewed By"
-                     remarks     as "Remarks"
+                     comments    as "Comments"
           </query>
-
           <earliest>-3650d</earliest>
           <latest>now</latest>
         </search>
-
         <option name="count">20</option>
         <option name="wrap">true</option>
         <option name="drilldown">row</option>
-
       </table>
+    </panel>
+  </row>
 
+  <row>
+    <!-- Account history panel — hidden when user/group is selected -->
+    <panel depends="$show_account$">
+      <title>$review_type_label$ - Review History</title>
+      <table>
+        <search>
+          <query>
+            index=automation_local_user_group_audit sourcetype="user_audit_signoff"
+            event_type="audit_signoff"
+            | where compliance_review_type="$service_catalog$"
+            | eval asset_id = coalesce(asset_id, hostname)
+            | where (strftime(_time, "%Y")="$filter_year$"    OR "$filter_year$"="*")
+            | where (strftime(_time, "%m")="$filter_month$"   OR "$filter_month$"="*")
+            | where (device="$filter_device$"                 OR "$filter_device$"="*")
+            | where (group="$filter_group$"                   OR "$filter_group$"="*")
+            | where (asset_id="$filter_asset$"                OR "$filter_asset$"="*")
+            | where (department="$filter_dept$"               OR "$filter_dept$"="*")
+            | where (reviewed_by="$filter_reviewer$"          OR "$filter_reviewer$"="*")
+            | sort - reviewed_at
+            | eval "Date of Job"  = coalesce(strftime(strptime(date_of_job, "%Y-%m-%dT%H:%M:%S") + 28800, "%Y-%m-%d %H:%M"), strftime(strptime(date_of_job, "%Y-%m-%dT%H:%M:%SZ") + 28800, "%Y-%m-%d %H:%M"))
+            | eval "Review Date"  = coalesce(strftime(strptime(reviewed_at, "%Y-%m-%dT%H:%M:%S.%f+00:00") + 28800, "%Y-%m-%d %H:%M"), strftime(strptime(reviewed_at, "%Y-%m-%dT%H:%M:%S+00:00") + 28800, "%Y-%m-%d %H:%M"))
+            | table "Date of Job" job_id asset_id device department group account_name custodian reviewer_designation review_outcome reviewed_by "Review Date" comments
+            | rename job_id               as "Job ID"
+                     asset_id             as "Asset ID"
+                     device               as "Device Type"
+                     department           as "Department"
+                     group                as "Group"
+                     account_name         as "Account Name"
+                     custodian            as "Custodian"
+                     reviewer_designation as "Reviewer Designation"
+                     review_outcome       as "Review Outcome"
+                     reviewed_by          as "Reviewed By"
+                     comments             as "Comments"
+          </query>
+          <earliest>-3650d</earliest>
+          <latest>now</latest>
+        </search>
+        <option name="count">20</option>
+        <option name="wrap">true</option>
+        <option name="drilldown">row</option>
+      </table>
     </panel>
   </row>
 
