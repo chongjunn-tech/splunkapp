@@ -52,26 +52,17 @@ class SignoffHandler(rest.BaseRestHandler):
                 "reviewed_by": reviewer,
                 "reviewed_at": now.isoformat(),
                 "audit_year": str(now.year),
-                "remarks": "Reviewed via dashboard by " + reviewer,
                 "audit_source": "compliance_audit_app",
             }
 
-            # ── Snapshot of the reviewed row data ────────────────────────────
-            # All fields sent by the JS are merged in so the signoff event is
-            # self-contained and can be used for historical reference without
-            # needing to join back to the original audit log.
-            #
-            # Fields that are already set above are skipped to prevent overwrite.
-            # reviewer/reviewed_at/audit_* are server-side only — never from browser.
             SERVER_ONLY = {
                 "event_type",
                 "reviewed_by",
                 "reviewed_at",
                 "audit_year",
-                "remarks",
                 "audit_source",
-                "reviewed_by_info",
-                "review_date_info",  # legacy aliases — never write these
+                "reviewed_by_info",  # legacy aliases — never write these
+                "review_date_info",
             }
 
             for key, value in payload.items():
