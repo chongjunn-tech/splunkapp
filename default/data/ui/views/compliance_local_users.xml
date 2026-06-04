@@ -40,8 +40,8 @@
         <set token="form.filter_dept">*</set>
         <set token="filter_group">*</set>
         <set token="form.filter_group">*</set>
-        <set token="filter_host">*</set>
-        <set token="form.filter_host">*</set>
+        <set token="filter_asset">*</set>
+        <set token="form.filter_asset">*</set>
         <set token="filter_reviewer">all</set>
         <set token="form.filter_reviewer">all</set>
       </change>
@@ -204,10 +204,10 @@
 
     </input>
     
-    <input type="dropdown" token="filter_host" searchWhenChanged="true" depends="$filter_dept$">
+    <input type="dropdown" token="filter_asset" searchWhenChanged="true" depends="$filter_dept$">
       <label>Asset ID</label>
       <default>*</default>
-      <choice value="*">-- All Hosts --</choice>
+      <choice value="*">-- All Assets --</choice>
       <search>
         <query>
           index=automation_local_user_group_audit

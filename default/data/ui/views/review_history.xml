@@ -35,8 +35,8 @@
         <set token="form.filter_group">*</set>
         <set token="filter_dept">*</set>
         <set token="form.filter_dept">*</set>
-        <set token="filter_host">*</set>
-        <set token="form.filter_host">*</set>
+        <set token="filter_asset">*</set>
+        <set token="form.filter_asset">*</set>
         <set token="filter_reviewer">*</set>
         <set token="form.filter_reviewer">*</set>
       </change>
@@ -70,8 +70,8 @@
         <set token="form.filter_group">*</set>
         <set token="filter_dept">*</set>
         <set token="form.filter_dept">*</set>
-        <set token="filter_host">*</set>
-        <set token="form.filter_host">*</set>
+        <set token="filter_asset">*</set>
+        <set token="form.filter_asset">*</set>
         <set token="filter_reviewer">*</set>
         <set token="form.filter_reviewer">*</set>
       </change>
@@ -106,8 +106,8 @@
         <set token="form.filter_group">*</set>
         <set token="filter_dept">*</set>
         <set token="form.filter_dept">*</set>
-        <set token="filter_host">*</set>
-        <set token="form.filter_host">*</set>
+        <set token="filter_asset">*</set>
+        <set token="form.filter_asset">*</set>
         <set token="filter_reviewer">*</set>
         <set token="form.filter_reviewer">*</set>
       </change>
@@ -134,8 +134,8 @@
         <set token="form.filter_group">*</set>
         <set token="filter_dept">*</set>
         <set token="form.filter_dept">*</set>
-        <set token="filter_host">*</set>
-        <set token="form.filter_host">*</set>
+        <set token="filter_asset">*</set>
+        <set token="form.filter_asset">*</set>
       </change>
     </input>
 
@@ -177,9 +177,9 @@
       <fieldForValue>group</fieldForValue>
     </input>
 
-    <input type="dropdown" token="filter_host" searchWhenChanged="true">
+    <input type="dropdown" token="filter_asset" searchWhenChanged="true">
       <label>Asset ID</label>
-      <choice value="*">All Hosts</choice>
+      <choice value="*">All Assets</choice>
       <default>*</default>
       <search>
         <query>
@@ -228,11 +228,13 @@
             event_type="audit_signoff"
 
             | where compliance_review_type="$service_catalog$"
+            | eval asset_id = coalesce(asset_id, hostname)
+            | eval asset_id = coalesce(asset_id, hostname)
             | where (strftime(_time, "%Y")="$filter_year$"    OR "$filter_year$"="*")
             | where (strftime(_time, "%m")="$filter_month$"   OR "$filter_month$"="*")
             | where (device="$filter_device$"                 OR "$filter_device$"="*")
             | where (group="$filter_group$"                   OR "$filter_group$"="*")
-            | where (asset_id="$filter_host$"                 OR "$filter_host$"="*")
+            | where (asset_id="$filter_asset$"                 OR "$filter_asset$"="*")
             | where (department="$filter_dept$"               OR "$filter_dept$"="*")
             | where (reviewed_by="$filter_reviewer$"          OR "$filter_reviewer$"="*")
 
