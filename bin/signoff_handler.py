@@ -1,6 +1,7 @@
 import json
 import urllib.request
 import urllib.error
+import urllib.parse
 import ssl
 import splunk.rest as rest
 import splunk.clilib.cli_common as cli
@@ -10,9 +11,11 @@ class SignoffHandler(rest.BaseRestHandler):
 
     def handle_POST(self):
         try:
-            # 1. Parse hostname and date_of_job from browser request
-            payload = json.loads(self.request["payload"])
-            hostname = payload.get("hostname", "").strip()
+            # 1. Parse record_id and required fields from browser request
+            raw = self.request["payload"]
+            payload = json.loads(raw)
+            record_id = payload.get("record_id", "").strip()
+            asset_id = payload.get("asset_id", "").strip()
             compliance_review_type = payload.get(
                 "compliance_review_type", ""
             ).strip()
@@ -21,8 +24,8 @@ class SignoffHandler(rest.BaseRestHandler):
             group = payload.get("group", "")
             date_of_job = payload.get("date_of_job", "").strip()
 
-            if not hostname or not date_of_job:
-                self._send_error(400, "Missing hostname or date_of_job")
+            if not record_id:
+                self._send_error(400, "Missing record_id")
                 return
 
             # 2. Get reviewer from Splunk session — never from browser
@@ -36,23 +39,49 @@ class SignoffHandler(rest.BaseRestHandler):
 
             now = datetime.now(timezone.utc)
 
+            # Base fields — always present
+            event_body = {
+                "event_type": "audit_signoff",
+                "record_id": record_id,
+                "asset_id": asset_id,
+                "date_of_job": date_of_job,
+                "compliance_review_type": compliance_review_type,
+                "device": device,
+                "department": department,
+                "group": group,
+                "reviewed_by": reviewer,
+                "reviewed_at": now.isoformat(),
+                "audit_year": str(now.year),
+                "remarks": "Reviewed via dashboard by " + reviewer,
+                "audit_source": "compliance_audit_app",
+            }
+
+            # ── Snapshot of the reviewed row data ────────────────────────────
+            # All fields sent by the JS are merged in so the signoff event is
+            # self-contained and can be used for historical reference without
+            # needing to join back to the original audit log.
+            #
+            # Fields that are already set above are skipped to prevent overwrite.
+            # reviewer/reviewed_at/audit_* are server-side only — never from browser.
+            SERVER_ONLY = {
+                "event_type",
+                "reviewed_by",
+                "reviewed_at",
+                "audit_year",
+                "remarks",
+                "audit_source",
+                "reviewed_by_info",
+                "review_date_info",  # legacy aliases — never write these
+            }
+
+            for key, value in payload.items():
+                if key not in SERVER_ONLY and key not in event_body:
+                    event_body[key] = value
+
             event = {
                 "sourcetype": "user_audit_signoff",
                 "index": "automation_local_user_group_audit",
-                "event": {
-                    "event_type": "audit_signoff",
-                    "hostname": hostname,
-                    "date_of_job": date_of_job,
-                    "compliance_review_type": compliance_review_type,
-                    "device": device,
-                    "department": department,
-                    "group": group,
-                    "reviewed_by": reviewer,
-                    "reviewed_at": now.isoformat(),
-                    "audit_year": str(now.year),
-                    "remarks": "Reviewed via dashboard by " + reviewer,
-                    "audit_source": "compliance_audit_app",
-                },
+                "event": event_body,
             }
 
             # 5. POST to HEC internally using urllib (no external dependencies)

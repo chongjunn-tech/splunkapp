@@ -17,7 +17,8 @@
       <initialValue>user</initialValue>
       <choice value="user">Compliance - Local Users Review</choice>
       <choice value="group">Compliance - Local Group Review</choice>
-      <!-- Update label when service catalog changes — resets handled by JS -->
+      <choice value="account">Compliance - Account Review</choice>
+      <!-- Update label and reset all downstream filters when service catalog changes -->
       <change>
         <condition value="user">
           <set token="review_type_label">Compliance - Local Users Review</set>
@@ -25,6 +26,23 @@
         <condition value="group">
           <set token="review_type_label">Compliance - Local Group Review</set>
         </condition>
+        <condition value="account">
+          <set token="review_type_label">Compliance - Account Review</set>
+        </condition>
+        <set token="filter_year">*</set>
+        <set token="form.filter_year">*</set>
+        <set token="filter_month">*</set>
+        <set token="form.filter_month">*</set>
+        <set token="filter_device">*</set>
+        <set token="form.filter_device">*</set>
+        <set token="filter_dept">*</set>
+        <set token="form.filter_dept">*</set>
+        <set token="filter_group">*</set>
+        <set token="form.filter_group">*</set>
+        <set token="filter_host">*</set>
+        <set token="form.filter_host">*</set>
+        <set token="filter_reviewer">all</set>
+        <set token="form.filter_reviewer">all</set>
       </change>
     </input>
 
@@ -35,7 +53,11 @@
       <choice value="*">-- All Years --</choice>
       <search>
         <query>
-          index=automation_local_user_group_audit sourcetype="custom:automation_local_user_group_audit:logs" earliest=-3y latest=now
+          index=automation_local_user_group_audit
+          (sourcetype="custom:automation_local_user_group_audit:asset_logs"
+           OR sourcetype="custom:automation_local_user_group_audit:asset_group_logs"
+           OR sourcetype="custom:automation_local_user_group_audit:account_logs")
+          earliest=-3y latest=now
           | spath input=_raw path=time output=job_time
 
           | where compliance_review_type="$service_catalog$"
@@ -59,7 +81,11 @@
       <choice value="*">-- All Months --</choice>
       <search>
         <query>
-          index=automation_local_user_group_audit sourcetype="custom:automation_local_user_group_audit:logs" earliest=-3y latest=now
+          index=automation_local_user_group_audit
+          (sourcetype="custom:automation_local_user_group_audit:asset_logs"
+           OR sourcetype="custom:automation_local_user_group_audit:asset_group_logs"
+           OR sourcetype="custom:automation_local_user_group_audit:account_logs")
+          earliest=-3y latest=now
           | spath input=_raw path=time output=job_time
 
           | where compliance_review_type="$service_catalog$"
@@ -99,7 +125,11 @@
       <choice value="*">-- All Devices --</choice>
       <search>
         <query>
-          index=automation_local_user_group_audit sourcetype="custom:automation_local_user_group_audit:logs" earliest=-3y latest=now
+          index=automation_local_user_group_audit
+          (sourcetype="custom:automation_local_user_group_audit:asset_logs"
+           OR sourcetype="custom:automation_local_user_group_audit:asset_group_logs"
+           OR sourcetype="custom:automation_local_user_group_audit:account_logs")
+          earliest=-3y latest=now
           | spath input=_raw path=time output=job_time
 
           | where compliance_review_type="$service_catalog$"
@@ -122,7 +152,11 @@
       <choice value="*">-- All Departments --</choice>
       <search>
         <query>
-          index=automation_local_user_group_audit sourcetype="custom:automation_local_user_group_audit:logs" earliest=-3y latest=now
+          index=automation_local_user_group_audit
+          (sourcetype="custom:automation_local_user_group_audit:asset_logs"
+           OR sourcetype="custom:automation_local_user_group_audit:asset_group_logs"
+           OR sourcetype="custom:automation_local_user_group_audit:account_logs")
+          earliest=-3y latest=now
           | spath input=_raw path=time output=job_time
 
           | where compliance_review_type="$service_catalog$"
@@ -147,7 +181,11 @@
       <choice value="*">-- All Groups --</choice>
       <search>
         <query>
-          index=automation_local_user_group_audit sourcetype="custom:automation_local_user_group_audit:logs" earliest=-3y latest=now
+          index=automation_local_user_group_audit
+          (sourcetype="custom:automation_local_user_group_audit:asset_logs"
+           OR sourcetype="custom:automation_local_user_group_audit:asset_group_logs"
+           OR sourcetype="custom:automation_local_user_group_audit:account_logs")
+          earliest=-3y latest=now
           | spath input=_raw path=time output=job_time
 
           | where compliance_review_type="$service_catalog$"
@@ -166,12 +204,16 @@
     </input>
     
     <input type="dropdown" token="filter_host" searchWhenChanged="true" depends="$filter_dept$">
-      <label>Hostname</label>
+      <label>Asset ID</label>
       <default>*</default>
       <choice value="*">-- All Hosts --</choice>
       <search>
         <query>
-          index=automation_local_user_group_audit sourcetype="custom:automation_local_user_group_audit:logs" earliest=-3y latest=now
+          index=automation_local_user_group_audit
+          (sourcetype="custom:automation_local_user_group_audit:asset_logs"
+           OR sourcetype="custom:automation_local_user_group_audit:asset_group_logs"
+           OR sourcetype="custom:automation_local_user_group_audit:account_logs")
+          earliest=-3y latest=now
           | spath input=_raw path=time output=job_time
 
           | where compliance_review_type="$service_catalog$"
@@ -180,13 +222,13 @@
           AND (device="$filter_device$"   OR "$filter_device$"="*")
           AND (department="$filter_dept$" OR "$filter_dept$"="*")
           AND (group="$filter_group$"     OR "$filter_group$"="*")
-          | stats count by hostname | fields hostname
+          | stats count by asset_id | fields asset_id
         </query>
         <earliestTime>-3y</earliestTime>
         <latestTime>now</latestTime>
       </search>
-      <fieldForLabel>hostname</fieldForLabel>
-      <fieldForValue>hostname</fieldForValue>
+      <fieldForLabel>asset_id</fieldForLabel>
+      <fieldForValue>asset_id</fieldForValue>
     </input>
 
     <!-- Reviewer filter -->

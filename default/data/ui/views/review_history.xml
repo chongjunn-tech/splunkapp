@@ -14,12 +14,16 @@
       <initialValue>user</initialValue>
       <choice value="user">Compliance - Local Users Review</choice>
       <choice value="group">Compliance - Local Group Review</choice>
+      <choice value="account">Compliance - Account Review</choice>
       <change>
         <condition value="user">
           <set token="review_type_label">Compliance - Local Users Review</set>
         </condition>
         <condition value="group">
           <set token="review_type_label">Compliance - Local Group Review</set>
+        </condition>
+        <condition value="account">
+          <set token="review_type_label">Compliance - Account Review</set>
         </condition>
         <set token="filter_year">*</set>
         <set token="form.filter_year">*</set>
@@ -174,7 +178,7 @@
     </input>
 
     <input type="dropdown" token="filter_host" searchWhenChanged="true">
-      <label>Hostname</label>
+      <label>Asset ID</label>
       <choice value="*">All Hosts</choice>
       <default>*</default>
       <search>
@@ -186,11 +190,11 @@
           AND (strftime(_time, "%m")="$filter_month$" OR "$filter_month$"="*")
           AND (device="$filter_device$" OR "$filter_device$"="*")
           AND (department="$filter_dept$" OR "$filter_dept$"="*")
-          | stats count by hostname | fields hostname
+          | stats count by asset_id | fields asset_id
         </query>
       </search>
-      <fieldForLabel>hostname</fieldForLabel>
-      <fieldForValue>hostname</fieldForValue>
+      <fieldForLabel>asset_id</fieldForLabel>
+      <fieldForValue>asset_id</fieldForValue>
     </input>
 
     <input type="dropdown" token="filter_reviewer" searchWhenChanged="true">
@@ -228,7 +232,7 @@
             | where (strftime(_time, "%m")="$filter_month$"   OR "$filter_month$"="*")
             | where (device="$filter_device$"                 OR "$filter_device$"="*")
             | where (group="$filter_group$"                   OR "$filter_group$"="*")
-            | where (hostname="$filter_host$"                 OR "$filter_host$"="*")
+            | where (asset_id="$filter_host$"                 OR "$filter_host$"="*")
             | where (department="$filter_dept$"               OR "$filter_dept$"="*")
             | where (reviewed_by="$filter_reviewer$"          OR "$filter_reviewer$"="*")
 
@@ -236,9 +240,9 @@
             | eval "Review Date"    = strftime(_time, "%Y-%m-%d %H:%M:%S")
             | eval "Audit Job Date" = strftime(strptime(date_of_job, "%Y-%m-%dT%H:%M:%SZ") + 28800, "%Y-%m-%d %H:%M")
 
-            | table hostname device department group reviewed_by remarks "Review Date" "Audit Job Date"
+            | table asset_id device department group reviewed_by remarks "Review Date" "Audit Job Date"
 
-            | rename hostname    as "Host"
+            | rename asset_id    as "Asset ID"
                      device      as "Device"
                      department  as "Department"
                      group       as "Group"

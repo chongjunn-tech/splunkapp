@@ -3,8 +3,9 @@ require([
     "splunkjs/mvc",
     "splunkjs/mvc/searchmanager",
     "app/compliance_account_review/audit_config",
+    "jquery",
     "splunkjs/mvc/simplexml/ready!"
-], function(mvc, SearchManager, CONFIG) {
+], function(mvc, SearchManager, CONFIG, $) {
 
     var tokens               = mvc.Components.getInstance("default");
     var selected             = {};
@@ -17,7 +18,7 @@ require([
 
     // var COLS = [
     //     { key: "date_of_job",            label: "Date of Job" },
-    //     { key: "hostname",               label: "Host" },
+    //     { key: "asset_id",               label: "Host" },
     //     { key: "device",                 label: "Device" },
     //     { key: "department",             label: "Department" },
     //     { key: "group",                  label: "Group" },
@@ -30,76 +31,109 @@ require([
     //     { key: "reviewed_by_info",       label: "Reviewed By" },
     //     { key: "review_date_info",       label: "Review Date" }
     // ];
-    // ── Catalog config map ──────────────────────────────────────────────────────
- // ── Review type config ──────────────────────────────────────────────────────
+    // ── Review type config ──────────────────────────────────────────────────────
     var REVIEW_CONFIG = {
         user: {
             cols: [
-                { key: "date_of_job",          label: "Date of Job" },
-                { key: "hostname",             label: "Host" },
-                { key: "device",               label: "Device" },
-                { key: "department",           label: "Department" },
-                { key: "group",                label: "Group" },
-                { key: "additional_users",     label: "Additional Users" },
-                { key: "missing_users",        label: "Missing Users" },
-                { key: "locked_accounts",      label: "Locked" },
-                { key: "expired_accounts",     label: "Expired" },
-                { key: "interactive_accounts", label: "Interactive" },
-                { key: "baseline_accounts",    label: "Baseline Accounts" },
-                { key: "reviewed_by_info",     label: "Reviewed By" },
-                { key: "review_date_info",     label: "Review Date" }
+                { key: "date_of_job",                 label: "Date of Job" },
+                { key: "job_id",                      label: "Job ID" },
+                { key: "asset_id",                    label: "Asset ID" },
+                { key: "device",                      label: "Device Type" },
+                { key: "department",                  label: "Department" },
+                { key: "group",                       label: "Group" },
+                { key: "additional_users",            label: "Additional Users" },
+                { key: "locked_accounts",             label: "Locked" },
+                { key: "expired_accounts",            label: "Expired" },
+                { key: "interactive_accounts",        label: "Interactive" },
+                { key: "non_interactive_accounts",    label: "Non-Interactive" },
+                { key: "password_violation_accounts", label: "Password Violation Accounts" },
+                { key: "baseline_accounts",           label: "Baseline Accounts" },
+                { key: "reviewed_by",                 label: "Reviewed By" },
+                { key: "reviewed_at",                 label: "Review Date" },
+                { key: "comments",                    label: "Comments" }
             ],
-            // extra spath fields to extract from _raw
             spathFields: [
-                { path: "additional_users{}",     output: "additional_users_mv" },
-                { path: "missing_users{}",        output: "missing_users_mv" },
-                { path: "locked_accounts{}",      output: "locked_accounts_mv" },
-                { path: "expired_accounts{}",     output: "expired_accounts_mv" },
-                { path: "interactive_accounts{}", output: "interactive_accounts_mv" },
-                { path: "baseline_accounts{}",    output: "baseline_accounts_mv" }
+                { path: "additional_users{}",            output: "additional_users_mv" },
+                { path: "locked_accounts{}",             output: "locked_accounts_mv" },
+                { path: "expired_accounts{}",            output: "expired_accounts_mv" },
+                { path: "interactive_accounts{}",        output: "interactive_accounts_mv" },
+                { path: "non_interactive_accounts{}",    output: "non_interactive_accounts_mv" },
+                { path: "password_violation_accounts{}", output: "password_violation_accounts_mv" },
+                { path: "baseline_accounts{}",           output: "baseline_accounts_mv" }
             ],
-            // mvjoin evals to produce display columns
             mvEvals: [
-                { field: "additional_users",     mv: "additional_users_mv" },
-                { field: "missing_users",        mv: "missing_users_mv" },
-                { field: "locked_accounts",      mv: "locked_accounts_mv" },
-                { field: "expired_accounts",     mv: "expired_accounts_mv" },
-                { field: "interactive_accounts", mv: "interactive_accounts_mv" },
-                { field: "baseline_accounts",    mv: "baseline_accounts_mv" }
+                { field: "additional_users",            mv: "additional_users_mv" },
+                { field: "locked_accounts",             mv: "locked_accounts_mv" },
+                { field: "expired_accounts",            mv: "expired_accounts_mv" },
+                { field: "interactive_accounts",        mv: "interactive_accounts_mv" },
+                { field: "non_interactive_accounts",    mv: "non_interactive_accounts_mv" },
+                { field: "password_violation_accounts", mv: "password_violation_accounts_mv" },
+                { field: "baseline_accounts",           mv: "baseline_accounts_mv" }
             ],
-            // fields in the final | table clause
-            tableFields: "hostname device compliance_review_type date_of_job date_of_job_raw department group additional_users missing_users locked_accounts expired_accounts interactive_accounts baseline_accounts reviewed_by_info review_date_info"
+            tableFields: "record_id asset_id device compliance_review_type date_of_job date_of_job_raw job_id department group additional_users locked_accounts expired_accounts interactive_accounts non_interactive_accounts password_violation_accounts baseline_accounts reviewed_by reviewed_at comments"
         },
 
         group: {
             cols: [
-                { key: "date_of_job",      label: "Date of Job" },
-                { key: "hostname",         label: "Host" },
-                { key: "device",           label: "Device" },
-                { key: "department",       label: "Department" },
-                { key: "group",            label: "Group" },
-                { key: "additional_groups",     label: "Additional Groups" },
-                { key: "missing_groups",     label: "Missing Groups" },
-                { key: "wheel_groups",     label: "Wheel Groups" },
-                { key: "baseline_groups",     label: "Baseline Groups" },
-                { key: "reviewed_by_info", label: "Reviewed By" },
-                { key: "review_date_info", label: "Review Date" }
+                { key: "date_of_job",       label: "Date of Job" },
+                { key: "job_id",            label: "Job ID" },
+                { key: "asset_id",          label: "Asset ID" },
+                { key: "device",            label: "Device Type" },
+                { key: "department",        label: "Department" },
+                { key: "group",             label: "Group" },
+                { key: "additional_groups", label: "Additional Groups" },
+                { key: "wheel_groups",      label: "Wheel Groups" },
+                { key: "baseline_groups",   label: "Baseline Groups" },
+                { key: "reviewed_by",       label: "Reviewed By" },
+                { key: "reviewed_at",       label: "Review Date" },
+                { key: "comments",          label: "Comments" }
             ],
             spathFields: [
                 { path: "additional_groups{}", output: "additional_groups_mv" },
-                { path: "missing_groups{}", output: "missing_groups_mv" },
-                { path: "wheel_groups{}", output: "wheel_groups_mv" },
-                { path: "baseline_groups{}", output: "baseline_groups_mv" },
+                { path: "wheel_groups{}",      output: "wheel_groups_mv" },
+                { path: "baseline_groups{}",   output: "baseline_groups_mv" }
             ],
             mvEvals: [
                 { field: "additional_groups", mv: "additional_groups_mv" },
-                { field: "missing_groups", mv: "missing_groups_mv" },
-                { field: "wheel_groups", mv: "wheel_groups_mv" },
-                { field: "baseline_groups", mv: "baseline_groups_mv" },
+                { field: "wheel_groups",      mv: "wheel_groups_mv" },
+                { field: "baseline_groups",   mv: "baseline_groups_mv" }
             ],
-            tableFields: "hostname device compliance_review_type date_of_job date_of_job_raw department group additional_groups missing_groups wheel_groups baseline_groups reviewed_by_info review_date_info"
+            tableFields: "record_id asset_id device compliance_review_type date_of_job date_of_job_raw job_id department group additional_groups wheel_groups baseline_groups reviewed_by reviewed_at comments"
+        },
+
+        // Account audit — one row per account; dedup key includes account_name
+        account: {
+            perAccount: true,
+            cols: [
+                { key: "date_of_job",          label: "Date of Job" },
+                { key: "job_id",               label: "Job ID" },
+                { key: "asset_id",             label: "Asset ID" },
+                { key: "device",               label: "Device Type" },
+                { key: "department",           label: "Department" },
+                { key: "group",                label: "Group" },
+                { key: "account_name",         label: "Account Name" },
+                { key: "account_type",         label: "Account Type" },
+                { key: "account_origin",       label: "Account Origin" },
+                { key: "account_status",       label: "Account Status" },
+                { key: "role_name",            label: "Role Name" },
+                { key: "role_scope",           label: "Role Scope" },
+                { key: "last_login",           label: "Last Login" },
+                { key: "custodian",            label: "Custodian" },
+                { key: "reviewer_designation", label: "Reviewer Designation" },
+                { key: "review_outcome",       label: "Review Outcome", isOutcome: true },
+                { key: "reviewed_by",          label: "Reviewed By" },
+                { key: "reviewed_at",          label: "Review Date" },
+                { key: "comments",             label: "Comments" }
+            ],
+            spathFields: [],
+            mvEvals: [],
+            tableFields: "record_id asset_id device compliance_review_type date_of_job date_of_job_raw job_id department group account_name account_type account_origin account_status role_name role_scope last_login custodian reviewer_designation review_outcome reviewed_by reviewed_at comments"
         }
     };
+
+    // ── Outcome selections for account_audit rows ────────────────────────────
+    // key = uniqueKey, value = "Retain" | "Revoke" | "Lock"
+    var rowOutcomes = {};
 
     function escHtml(str) {
         return String(str)
@@ -137,16 +171,31 @@ require([
         counter.textContent = count + " row(s)" + " selected";
         bar.style.display   = "block";
 
-        if (count > 0) {
+        // For account_audit: block if any selected row is missing an outcome
+        var reviewType = tokens.get("service_catalog") || "user";
+        var missingOutcome = false;
+        if (reviewType === "account" && count > 0) {
+            Object.keys(selected).forEach(function(k) {
+                if (selected[k] && !rowOutcomes[k]) {
+                    missingOutcome = true;
+                }
+            });
+        }
+
+        if (count > 0 && !missingOutcome) {
             btn.disabled         = false;
             btn.style.background = "#1d4ed8";
             btn.style.cursor     = "pointer";
             btn.style.opacity    = "1";
+            btn.title            = "";
         } else {
             btn.disabled         = true;
             btn.style.background = "#9ca3af";
             btn.style.cursor     = "not-allowed";
             btn.style.opacity    = "0.7";
+            btn.title            = missingOutcome
+                ? "Set a Review Outcome for all selected rows before signing off"
+                : "";
         }
     }
 
@@ -191,20 +240,27 @@ require([
     var containerEl = document.getElementById("audit-table-container");
     if (containerEl) {
         containerEl.addEventListener("change", function(e) {
+            // ── Outcome dropdown (account_audit only) ──────────────────────────
+            if (e.target && e.target.classList.contains("outcome-select")) {
+                var key = e.target.getAttribute("data-key");
+                rowOutcomes[key] = e.target.value;
+                updateActionBar();
+                return;
+            }
+
             if (e.target && e.target.classList.contains("row-chk")) {
-                var key = e.target.getAttribute("data-host")        + "|"
-                        + e.target.getAttribute("data-date-raw")    + "|"
-                        + e.target.getAttribute("data-review-type") + "|"
-                        + e.target.getAttribute("data-device");
+                var key = e.target.getAttribute("data-key");  // record_id
 
                 if (e.target.checked) {
                     selected[key]     = true;
                     selectedMeta[key] = {
+                        record_id:              e.target.getAttribute("data-record-id"),
                         compliance_review_type: e.target.getAttribute("data-review-type"),
                         device:                 e.target.getAttribute("data-device"),
                         department:             e.target.getAttribute("data-department"),
                         group:                  e.target.getAttribute("data-group"),
-                        date_of_job_raw:        e.target.getAttribute("data-date-raw")
+                        date_of_job_raw:        e.target.getAttribute("data-date-raw"),
+                        account_name:           e.target.getAttribute("data-account-name") || ""
                     };
                 } else {
                     delete selected[key];
@@ -215,20 +271,19 @@ require([
 
             if (e.target && e.target.id === "chk-all") {
                 document.querySelectorAll(".row-chk").forEach(function(b) {
-                    var key = b.getAttribute("data-host")        + "|"
-                            + b.getAttribute("data-date-raw")    + "|"
-                            + b.getAttribute("data-review-type") + "|"
-                            + b.getAttribute("data-device");
+                    var key = b.getAttribute("data-key");  // record_id
 
                     b.checked = e.target.checked;
                     if (e.target.checked) {
                         selected[key]     = true;
                         selectedMeta[key] = {
+                            record_id:              b.getAttribute("data-record-id"),
                             compliance_review_type: b.getAttribute("data-review-type"),
                             device:                 b.getAttribute("data-device"),
                             department:             b.getAttribute("data-department"),
                             group:                  b.getAttribute("data-group"),
-                            date_of_job_raw:        b.getAttribute("data-date-raw")
+                            date_of_job_raw:        b.getAttribute("data-date-raw"),
+                            account_name:           b.getAttribute("data-account-name") || ""
                         };
                     } else {
                         delete selected[key];
@@ -284,25 +339,26 @@ require([
         var html = "<table class='audit-table'><thead><tr>";
         html += "<th style='width:32px;'><input type='checkbox' id='chk-all' title='Select all'></th>";
         COLS.forEach(function(c) {
-            var style = c.key === "hostname"? ` style='min-width:${CONFIG.ui.hostnameWidth}px;'`: "";
+            var style = c.key === "asset_id"? ` style='min-width:${CONFIG.ui.hostnameWidth}px;'`: "";
             html += "<th" + style + ">" + c.label + "</th>";
         });
         html += "</tr></thead><tbody>";
 
         rows.forEach(function(row) {
-            var host       = row["hostname"]               || "";
-            var jobDate    = row["date_of_job"]            || "";   // SGT display string
-            var jobDateRaw = row["date_of_job_raw"]        || "";   // raw UTC value for joining/signoff
+            var recordId   = row["record_id"]              || "";
+            var host       = row["asset_id"]               || "";
+            var jobDate    = row["date_of_job"]            || "";
+            var jobDateRaw = row["date_of_job_raw"]        || "";
             var reviewType = row["compliance_review_type"] || "";
             var device     = row["device"]                 || "";
             var department = row["department"]             || "";
             var group      = row["group"]                  || "";
+            var accountName = row["account_name"]          || "";
 
-            // Unique key uses raw date + device + reviewType to avoid collisions
-            // when the same hostname runs on multiple devices or review types
-            var uniqueKey = host + "|" + jobDateRaw + "|" + reviewType + "|" + device;
+            // record_id is the unique key per row — no more multi-field composite keys
+            var uniqueKey = recordId;
 
-            var isReviewed = row["reviewed_by_info"] && row["reviewed_by_info"] !== "-";
+            var isReviewed = row["reviewed_by"] && row["reviewed_by"] !== "-";
             var checked    = selected[uniqueKey] ? "checked" : "";
             var rowClass   = row._pending ? "pending"
                            : isReviewed   ? "reviewed"
@@ -310,17 +366,36 @@ require([
 
             html += "<tr class='" + rowClass + "'>";
             html += "<td><input type='checkbox' class='row-chk'"
-                + " data-host='"         + escHtml(host)       + "'"
+                + " data-record-id='"    + escHtml(recordId)    + "'"
+                + " data-host='"         + escHtml(host)        + "'"
                 + " data-date='"         + escHtml(jobDate)     + "'"
                 + " data-date-raw='"     + escHtml(jobDateRaw)  + "'"
                 + " data-review-type='"  + escHtml(reviewType)  + "'"
                 + " data-device='"       + escHtml(device)      + "'"
                 + " data-department='"   + escHtml(department)  + "'"
-                + " data-group='"        + escHtml(group)        + "'"
+                + " data-group='"        + escHtml(group)       + "'"
+                + " data-account-name='" + escHtml(accountName) + "'"
+                + " data-key='"          + escHtml(uniqueKey)   + "'"
                 + " " + checked + "></td>";
 
             COLS.forEach(function(c) {
-                html += "<td>" + escHtml(row[c.key] || "-") + "</td>";
+                if (c.isOutcome) {
+                    // Always render as a dropdown — reviewed rows pre-select their saved outcome
+                    var currentOutcome = rowOutcomes[uniqueKey] || row["review_outcome"] || "";
+                    console.log("[audit] render outcome uniqueKey=[" + uniqueKey + "] rowOutcomes=", rowOutcomes[uniqueKey], " row.review_outcome=[" + row["review_outcome"] + "] => currentOutcome=[" + currentOutcome + "]");
+                    html += "<td>"
+                        + "<select class='outcome-select' data-key='" + escHtml(uniqueKey) + "'"
+                        + " style='font-size:12px;padding:2px 4px;border:1px solid #d1d5db;border-radius:3px;"
+                        + (currentOutcome === "" ? "border-color:#ef4444;" : "") + "'>"
+                        + "<option value='' " + (currentOutcome === "" ? "selected" : "") + ">-- Select --</option>"
+                        + "<option value='Retain' " + (currentOutcome === "Retain" ? "selected" : "") + ">Retain</option>"
+                        + "<option value='Revoke' " + (currentOutcome === "Revoke" ? "selected" : "") + ">Revoke</option>"
+                        + "<option value='Lock' "   + (currentOutcome === "Lock"   ? "selected" : "") + ">Lock</option>"
+                        + "</select>"
+                        + "</td>";
+                } else {
+                    html += "<td>" + escHtml(row[c.key] || "-") + "</td>";
+                }
             });
             html += "</tr>";
         });
@@ -354,6 +429,7 @@ require([
         allRows      = [];
         selected     = {};
         selectedMeta = {};
+        rowOutcomes  = {};
 
         var reviewType  = tokens.get("service_catalog") || "user";
         var filterYear  = tokens.get("filter_year")    || "*";
@@ -379,18 +455,22 @@ require([
             return '| eval ' + f.field + ' = if(isnull(mvjoin(' + f.mv + ', ", ")) OR mvjoin(' + f.mv + ', ", ")="", "-", mvjoin(' + f.mv + ', ", "))';
         });
 
+        // Join and dedup on record_id — unique per audit row, eliminates multi-field key complexity
+        var dedupFields  = "record_id";
+        var joinFields   = "record_id";
+        var signoffDedup = "record_id";
+
         var query = [
-                'index=' + CONFIG.indexes.auditIndex + ' sourcetype="' + CONFIG.sourcetypes.auditLogs + '" earliest=-3y latest=now',
+                'index=' + CONFIG.indexes.auditIndex + ' earliest=-3y latest=now',
                 '| spath input=_raw path=time output=date_of_job_raw',
-
+                '| eval asset_id = coalesce(asset_id, hostname)',
                 '| eval date_of_job = strftime(strptime(date_of_job_raw, "%Y-%m-%dT%H:%M:%S") + 28800, "%Y-%m-%d %H:%M")',
-
             ]
             .concat(spathLines)
             .concat([
                 '| where compliance_review_type="' + reviewType + '"'
                     + ' AND (device="'     + device + '" OR "' + device + '"="*")'
-                    + ' AND (hostname="'   + host   + '" OR "' + host   + '"="*")'
+                    + ' AND (asset_id="'   + host   + '" OR "' + host   + '"="*")'
                     + ' AND (department="' + dept   + '" OR "' + dept   + '"="*")'
                     + ' AND (group="'      + group  + '" OR "' + group  + '"="*")'
                     + ' AND (substr(date_of_job_raw, 1, 4)="' + filterYear  + '" OR "' + filterYear  + '"="*")'
@@ -398,29 +478,27 @@ require([
             ])
             .concat(evalLines)
             .concat([
-                '| sort hostname device department group -date_of_job_raw',
-                '| dedup hostname device department group',
-                '| join type=left hostname date_of_job_raw device compliance_review_type [',
+                '| sort 0 asset_id device department group' + (cfg.perAccount ? ' account_name' : '') + ' -date_of_job_raw',
+                '| dedup record_id',
+                '| join type=left max=1 record_id [',
                 '    search index=automation_local_user_group_audit sourcetype="user_audit_signoff" event_type="audit_signoff" earliest=-3y latest=now',
-                '    | rename date_of_job as date_of_job_raw',
-                '    | sort - _time',
-                '    | dedup hostname date_of_job_raw device compliance_review_type',
-                '    | eval reviewed_by_info = reviewed_by',
-                '    | eval review_date_info = strftime(_time, "%Y-%m-%d %H:%M")',
-                '    | table hostname date_of_job_raw device compliance_review_type reviewed_by_info review_date_info',
+                '    | sort 0 - reviewed_at',
+                '    | dedup record_id',
+                '    | table record_id reviewed_by reviewed_at comments' + (cfg.perAccount ? ' review_outcome' : ''),
                 '  ]',
-                '| eval reviewed_by_info = coalesce(reviewed_by_info, "-")',
-                '| eval review_date_info = coalesce(review_date_info, "-")',
+                '| eval reviewed_by  = coalesce(reviewed_by, "-")',
+                '| eval reviewed_at  = coalesce(reviewed_at, "-")',
+                '| eval comments     = coalesce(comments, "-")',
+                (cfg.perAccount ? '| eval review_outcome = coalesce(review_outcome, "")' : ''),
                 '| where (',
                 '  ("' + reviewer + '"="all")',
-                '  OR ("' + reviewer + '"="*" AND reviewed_by_info!="-" AND isnotnull(reviewed_by_info))',
-                '  OR ("' + reviewer + '"="unreviewed" AND (reviewed_by_info="-" OR isnull(reviewed_by_info)))',
-                '  OR ("' + reviewer + '"!="all" AND "' + reviewer + '"!="*" AND "' + reviewer + '"!="unreviewed" AND reviewed_by_info="' + reviewer + '")',
+                '  OR ("' + reviewer + '"="*" AND reviewed_by!="-" AND isnotnull(reviewed_by))',
+                '  OR ("' + reviewer + '"="unreviewed" AND (reviewed_by="-" OR isnull(reviewed_by)))',
+                '  OR ("' + reviewer + '"!="all" AND "' + reviewer + '"!="*" AND "' + reviewer + '"!="unreviewed" AND reviewed_by="' + reviewer + '")',
                 ')',
-                '| dedup hostname date_of_job_raw device compliance_review_type',
-                '| sort department hostname -date_of_job_raw',
+                '| sort 0 department asset_id' + (cfg.perAccount ? ' account_name' : '') + ' -date_of_job_raw',
                 '| table ' + cfg.tableFields
-            ]).join(" ");
+            ]).filter(Boolean).join(" ");
 
         currentSearchManager = new SearchManager({
             id:        "audit-search-main",
@@ -445,17 +523,27 @@ require([
                 var keepFields = {};
                 var cfg2 = REVIEW_CONFIG[tokens.get("service_catalog") || "user"] || REVIEW_CONFIG["user"];
                 cfg2.cols.forEach(function(c) { keepFields[c.key] = true; });
-                ["hostname","date_of_job_raw","compliance_review_type","device","department","group"].forEach(function(f) {
+                ["record_id","asset_id","date_of_job_raw","compliance_review_type","device","department","group"].forEach(function(f) {
                     keepFields[f] = true;
                 });
 
                 var rows = d.rows.map(function(row) {
                     var obj = {};
                     d.fields.forEach(function(f, i) {
-                        if (keepFields[f]) obj[f] = row[i] || "";
+                        if (keepFields[f]) obj[f] = (row[i] !== null && row[i] !== undefined) ? row[i] : "";
                     });
                     return obj;
                 });
+
+                // Pre-populate rowOutcomes from saved review_outcome values returned by the join
+                if (cfg2.perAccount) {
+                    rows.forEach(function(row) {
+                        if (row.record_id && row.review_outcome && row.review_outcome !== "-") {
+                            rowOutcomes[row.record_id] = row.review_outcome;
+                        }
+                    });
+                }
+
                 renderTable(rows, restorePage);
                 showFeedback("Audit data loaded (" + rows.length + " rows)", "success");
             });
@@ -519,7 +607,12 @@ require([
 
         allRows.forEach(function(row, i) {
             var values = [i + 1].concat(COLS.map(function(c) {
-                var val = row[c.key] || "-";
+                var val;
+                if (c.isOutcome) {
+                    val = row[c.key] || rowOutcomes[row["record_id"]] || "-";
+                } else {
+                    val = row[c.key] || "-";
+                }
                 // Wrap in quotes and escape any existing quotes
                 return '"' + String(val).replace(/"/g, '""') + '"';
             }));
@@ -641,16 +734,8 @@ require([
 
             // ── Set all selected rows to pending (spinner) ──────────────────────
             keys.forEach(function(key) {
-                var parts = key.split("|");
                 allRows.forEach(function(row) {
-                    if (
-                        row.hostname               === parts[0] &&
-                        row.date_of_job_raw        === parts[1] &&
-                        row.compliance_review_type === parts[2] &&
-                        row.device                 === parts[3]
-                    ) {
-                        row._pending = true;
-                    }
+                    if (row.record_id === key) { row._pending = true; }
                 });
             });
 
@@ -672,63 +757,71 @@ require([
 
             // ── Fire one request per row — each resolves independently ──────────
             var promises = keys.map(function(key) {
-                var parts = key.split("|");
-                var meta  = metaSnapshot[key];
+                var meta    = metaSnapshot[key];
+                var fullRow = null;
+                allRows.forEach(function(row) {
+                    if (row.record_id === key) { fullRow = row; }
+                });
+
+                // Build the base signoff payload
+                var signoffPayload = {
+                    record_id:              key,
+                    compliance_review_type: meta.compliance_review_type || "",
+                    device:                 meta.device                 || "",
+                    department:             meta.department              || "",
+                    group:                  meta.group                  || "",
+                    review_outcome:         rowOutcomes[key]            || ""
+                };
+
+                // Merge all row fields into the payload so the signoff event is self-contained
+                if (fullRow) {
+                    var reviewType2 = meta.compliance_review_type || "";
+                    var cfg2 = REVIEW_CONFIG[reviewType2] || REVIEW_CONFIG["user"];
+                    cfg2.cols.forEach(function(c) {
+                        if (c.isOutcome) return;
+                        if (["device","department","group"].indexOf(c.key) !== -1) return;
+                        signoffPayload[c.key] = fullRow[c.key] || "";
+                    });
+                    signoffPayload.record_id = fullRow.record_id || key;
+                    signoffPayload.job_id    = fullRow.job_id    || "";
+                    signoffPayload.asset_id  = fullRow.asset_id  || "";
+                    signoffPayload.date_of_job = fullRow.date_of_job_raw || "";
+                }
 
                 return service.request(
                     "signoff",
                     "POST",
                     null,
                     null,
-                    JSON.stringify({
-                        hostname:               parts[0],
-                        date_of_job:            parts[1],
-                        compliance_review_type: meta.compliance_review_type || "",
-                        device:                 meta.device                 || "",
-                        department:             meta.department              || "",
-                        group:                  meta.group                  || ""
-                    }),
+                    JSON.stringify(signoffPayload),
                     { "Content-Type": "application/json" },
                     null
                 )
                 .then(function(r) {
                     var result = typeof r === "string" ? JSON.parse(r) : r;
-
-                    // This row responded — update it immediately
                     allRows.forEach(function(row) {
-                        if (
-                            row.hostname               === parts[0] &&
-                            row.date_of_job_raw        === parts[1] &&
-                            row.compliance_review_type === parts[2] &&
-                            row.device                 === parts[3]
-                        ) {
-                            row._pending = false;  // stop spinner for this row
+                        if (row.record_id === key) {
+                            row._pending = false;
                             if (result.status === "ok") {
-                                row.reviewed_by_info = reviewer;
-                                row.review_date_info = reviewDateSGT;
+                                row.reviewed_by = result.reviewer || reviewer;
+                                row.reviewed_at = reviewDateSGT;
+                                row.comments         = signoffPayload.comments || row.comments || "-";
+                                row.review_outcome   = rowOutcomes[key] || "";
                             } else {
                                 failed.push(key);
                             }
                         }
                     });
-                    renderPage();  // re-render immediately for this row
+                    renderPage();
                     return result;
                 })
                 .catch(function(err) {
-                    // This individual row failed
                     allRows.forEach(function(row) {
-                        if (
-                            row.hostname               === parts[0] &&
-                            row.date_of_job_raw        === parts[1] &&
-                            row.compliance_review_type === parts[2] &&
-                            row.device                 === parts[3]
-                        ) {
-                            row._pending = false;  // stop spinner
-                        }
+                        if (row.record_id === key) { row._pending = false; }
                     });
                     failed.push(key);
                     renderPage();
-                    console.error("Signoff error for " + parts[0] + ":", err);
+                    console.error("Signoff error for record_id=" + key + ":", err);
                     return { status: "error" };
                 });
             });
