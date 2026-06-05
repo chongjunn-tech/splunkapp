@@ -51,15 +51,13 @@ class SignoffHandler(rest.BaseRestHandler):
                 "group": group,
                 "reviewed_by": reviewer,
                 "reviewed_at": now.isoformat(),
-                "audit_year": str(now.year),
                 "audit_source": "compliance_audit_app",
             }
-
+            # these fields are only set by the server, even if included in the payload, to prevent spoofing
             SERVER_ONLY = {
                 "event_type",
                 "reviewed_by",
                 "reviewed_at",
-                "audit_year",
                 "audit_source"
             }
 
