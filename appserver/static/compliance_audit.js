@@ -359,37 +359,49 @@ require([
         container.style.overflowX = "auto";
         container.style.width     = "100%";
 
-        // Per-column min-widths
-        var COL_WIDTHS = {
-              date_of_job:          "80px",
-              job_id:               "80px",
-              asset_id:             "80px",
-              device:               "55px",
-              department:           "75px",
-              group:                "55px",
-              account_name:         "80px",
-              account_type:         "55px",
-              account_origin:       "60px",
-              account_status:       "55px",
-              role_name:            "60px",
-              role_scope:           "55px",
-              last_login:           "80px",
-              custodian:            "65px",
-              reviewer_designation: "70px",
-              review_outcome:       "80px",
-              reviewed_by:          "60px",
-              reviewed_at:          "80px",
-            comments:             "100px",
-            additional_users:            "130px",
-            locked_accounts:             "90px",
-            expired_accounts:            "90px",
-            interactive_accounts:        "90px",
-            non_interactive_accounts:    "110px",
-            password_violation_accounts: "150px",
-            baseline_accounts:           "120px",
-            additional_groups:           "120px",
-            wheel_groups:                "100px",
-            baseline_groups:             "110px"
+        var isAccount  = (tokens.get("service_catalog") === "account");
+
+        // Per-column min-widths — account uses tighter widths to fit all 19 cols on screen
+        var COL_WIDTHS = isAccount ? {
+            date_of_job:          "80px",
+            job_id:               "80px",
+            asset_id:             "80px",
+            device:               "55px",
+            department:           "75px",
+            group:                "55px",
+            account_name:         "80px",
+            account_type:         "55px",
+            account_origin:       "60px",
+            account_status:       "55px",
+            role_name:            "60px",
+            role_scope:           "55px",
+            last_login:           "80px",
+            custodian:            "65px",
+            reviewer_designation: "70px",
+            review_outcome:       "80px",
+            reviewed_by:          "60px",
+            reviewed_at:          "80px",
+            comments:             "100px"
+        } : {
+            date_of_job:                 "90px",
+            job_id:                      "90px",
+            asset_id:                    "90px",
+            device:                      "70px",
+            department:                  "90px",
+            group:                       "70px",
+            reviewed_by:                 "70px",
+            reviewed_at:                 "90px",
+            comments:                    "90px",
+            additional_users:            "100px",
+            locked_accounts:             "70px",
+            expired_accounts:            "70px",
+            interactive_accounts:        "70px",
+            non_interactive_accounts:    "90px",
+            password_violation_accounts: "110px",
+            baseline_accounts:           "90px",
+            additional_groups:           "90px",
+            wheel_groups:                "80px",
+            baseline_groups:             "80px"
         };
 
         if (!rows || rows.length === 0) {
@@ -455,18 +467,17 @@ require([
                         : (row["comments"] && row["comments"] !== "-" ? row["comments"] : "");
                     html += "<td>"
                         + "<textarea class='comment-input' data-key='" + escHtml(uniqueKey) + "'"
-                        + " rows='2'"
-                        + " style='font-size:12px;padding:2px 4px;border:1px solid #d1d5db;border-radius:3px;width:180px;resize:vertical;'"
-                        + " placeholder='Enter comments...'>"
+                        + " rows='1'"
+                        + " style='font-size:11px;padding:2px 3px;border:1px solid #d1d5db;border-radius:3px;width:90px;resize:vertical;'"
+                        + " placeholder='Comments...'>"
                         + escHtml(currentComment)
                         + "</textarea>"
                         + "</td>";
                 } else if (c.isOutcome) {
-                    // Always render as a dropdown — reviewed rows pre-select their saved outcome
                     var currentOutcome = rowOutcomes[uniqueKey] || row["review_outcome"] || "";
                     html += "<td>"
                         + "<select class='outcome-select' data-key='" + escHtml(uniqueKey) + "'"
-                        + " style='font-size:12px;padding:2px 4px;border:1px solid #d1d5db;border-radius:3px;"
+                        + " style='font-size:11px;padding:2px 3px;border:1px solid #d1d5db;border-radius:3px;width:80px;"
                         + (currentOutcome === "" ? "border-color:#ef4444;" : "") + "'>"
                         + "<option value='' " + (currentOutcome === "" ? "selected" : "") + ">-- Select --</option>"
                         + "<option value='Retain' " + (currentOutcome === "Retain" ? "selected" : "") + ">Retain</option>"
