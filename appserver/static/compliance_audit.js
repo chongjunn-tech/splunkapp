@@ -132,7 +132,7 @@ require([
                 { key: "role_scope",           label: "Role Scope" },
                 { key: "last_login",           label: "Last Login" },
                 { key: "custodian",            label: "Custodian" },
-                { key: "reviewer_designation", label: "Reviewer Designation" },
+                { key: "custodian_designation", label: "Custodian Designation" },
                 { key: "review_outcome",       label: "Review Outcome", isOutcome: true },
                 { key: "reviewed_by",          label: "Reviewed By" },
                 { key: "reviewed_at",          label: "Review Date" },
@@ -140,7 +140,7 @@ require([
             ],
             spathFields: [],
             mvEvals: [],
-            tableFields: "record_id asset_id device compliance_review_type date_of_job date_of_job_raw job_id department group account_name account_type account_origin account_status role_name role_scope last_login custodian reviewer_designation review_outcome reviewed_by reviewed_at comments"
+            tableFields: "record_id asset_id device compliance_review_type date_of_job date_of_job_raw job_id department group account_name account_type account_origin account_status role_name role_scope last_login custodian custodian_designation review_outcome reviewed_by reviewed_at comments"
         }
     };
 
@@ -377,7 +377,7 @@ require([
             role_scope:           "55px",
             last_login:           "80px",
             custodian:            "65px",
-            reviewer_designation: "70px",
+            custodian_designation: "70px",
             review_outcome:       "80px",
             reviewed_by:          "60px",
             reviewed_at:          "80px",
@@ -559,7 +559,7 @@ require([
         var signoffDedup = "record_id";
 
         var query = [
-                'index=' + CONFIG.indexes.auditIndex + ' earliest=-3y latest=now',
+                'index=' + CONFIG.indexes.auditIndex + ' event_type="audit" earliest=-3y latest=now',
                 '| spath input=_raw path=time output=date_of_job_raw',
                 '| eval asset_id = coalesce(asset_id, hostname)',
                 '| eval date_of_job = strftime(strptime(date_of_job_raw, "%Y-%m-%dT%H:%M:%S") + 28800, "%Y-%m-%d %H:%M")',
@@ -874,6 +874,7 @@ require([
                 });
 
                 // Build the base signoff payload
+                var isAccountType = (meta.compliance_review_type === "account");
                 var signoffPayload = {
                     record_id:              key,
                     compliance_review_type: meta.compliance_review_type || "",
@@ -882,9 +883,9 @@ require([
                     group:                  meta.group                  || "",
                     comments:               rowComments[key]            || ""
                 };
-                // if account , then review_outcome is required
-                if (meta.compliance_review_type === "account") {
-                    signoffPayload.review_outcome = rowOutcomes[key];
+                // Only include review_outcome for account audit
+                if (isAccountType) {
+                    signoffPayload.review_outcome = rowOutcomes[key] || "";
                 }
 
                 // Merge all row fields into the payload so the signoff event is self-contained

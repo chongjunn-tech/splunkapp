@@ -80,9 +80,6 @@
       <search>
         <query>
           index=automation_local_user_group_audit
-          (sourcetype="custom:automation_local_user_group_audit:asset_logs"
-           OR sourcetype="custom:automation_local_user_group_audit:asset_group_logs"
-           OR sourcetype="custom:automation_local_user_group_audit:account_logs")
           earliest=-3y latest=now
           | spath input=_raw path=time output=job_time
 
@@ -124,9 +121,6 @@
       <search>
         <query>
           index=automation_local_user_group_audit
-          (sourcetype="custom:automation_local_user_group_audit:asset_logs"
-           OR sourcetype="custom:automation_local_user_group_audit:asset_group_logs"
-           OR sourcetype="custom:automation_local_user_group_audit:account_logs")
           earliest=-3y latest=now
           | spath input=_raw path=time output=job_time
 
@@ -151,9 +145,6 @@
       <search>
         <query>
           index=automation_local_user_group_audit
-          (sourcetype="custom:automation_local_user_group_audit:asset_logs"
-           OR sourcetype="custom:automation_local_user_group_audit:asset_group_logs"
-           OR sourcetype="custom:automation_local_user_group_audit:account_logs")
           earliest=-3y latest=now
           | spath input=_raw path=time output=job_time
 
@@ -180,9 +171,6 @@
       <search>
         <query>
           index=automation_local_user_group_audit
-          (sourcetype="custom:automation_local_user_group_audit:asset_logs"
-           OR sourcetype="custom:automation_local_user_group_audit:asset_group_logs"
-           OR sourcetype="custom:automation_local_user_group_audit:account_logs")
           earliest=-3y latest=now
           | spath input=_raw path=time output=job_time
 
@@ -208,9 +196,6 @@
       <search>
         <query>
           index=automation_local_user_group_audit
-          (sourcetype="custom:automation_local_user_group_audit:asset_logs"
-           OR sourcetype="custom:automation_local_user_group_audit:asset_group_logs"
-           OR sourcetype="custom:automation_local_user_group_audit:account_logs")
           earliest=-3y latest=now
           | spath input=_raw path=time output=job_time
 
@@ -238,7 +223,7 @@
       <choice value="unreviewed">-- Not Yet Reviewed --</choice>
       <search>
         <query>
-          index=automation_local_user_group_audit sourcetype="user_audit_signoff" event_type="audit_signoff" earliest=-3y latest=now
+          index=automation_local_user_group_audit event_type="audit_signoff" earliest=-3y latest=now
           | where compliance_review_type="$service_catalog$"
           | stats count by reviewed_by
           | fields reviewed_by

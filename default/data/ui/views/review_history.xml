@@ -57,7 +57,7 @@
       <default>*</default>
       <search>
         <query>
-          index=automation_local_user_group_audit sourcetype="user_audit_signoff"
+          index=automation_local_user_group_audit 
           event_type="audit_signoff"
           | where compliance_review_type="$service_catalog$"
           | eval year = strftime(_time, "%Y")
@@ -92,7 +92,7 @@
       <default>*</default>
       <search>
         <query>
-          index=automation_local_user_group_audit sourcetype="user_audit_signoff"
+          index=automation_local_user_group_audit 
           event_type="audit_signoff"
           | where compliance_review_type="$service_catalog$"
           AND (strftime(_time, "%Y")="$filter_year$" OR "$filter_year$"="*")
@@ -127,7 +127,7 @@
       <default>*</default>
       <search>
         <query>
-          index=automation_local_user_group_audit sourcetype="user_audit_signoff"
+          index=automation_local_user_group_audit 
           event_type="audit_signoff"
           | where compliance_review_type="$service_catalog$"
           AND (strftime(_time, "%Y")="$filter_year$"  OR "$filter_year$"="*")
@@ -153,7 +153,7 @@
       <default>*</default>
       <search>
         <query>
-          index=automation_local_user_group_audit sourcetype="user_audit_signoff"
+          index=automation_local_user_group_audit
           event_type="audit_signoff"
           | where compliance_review_type="$service_catalog$"
           AND (strftime(_time, "%Y")="$filter_year$"  OR "$filter_year$"="*")
@@ -172,7 +172,7 @@
       <default>*</default>
       <search>
         <query>
-          index=automation_local_user_group_audit sourcetype="user_audit_signoff"
+          index=automation_local_user_group_audit 
           event_type="audit_signoff"
           | where compliance_review_type="$service_catalog$"
           AND (strftime(_time, "%Y")="$filter_year$"  OR "$filter_year$"="*")
@@ -191,7 +191,7 @@
       <default>*</default>
       <search>
         <query>
-          index=automation_local_user_group_audit sourcetype="user_audit_signoff"
+          index=automation_local_user_group_audit
           event_type="audit_signoff"
           | where compliance_review_type="$service_catalog$"
           AND (strftime(_time, "%Y")="$filter_year$"  OR "$filter_year$"="*")
@@ -211,7 +211,7 @@
       <default>*</default>
       <search>
         <query>
-          index=automation_local_user_group_audit sourcetype="user_audit_signoff"
+          index=automation_local_user_group_audit 
           event_type="audit_signoff"
           | where compliance_review_type="$service_catalog$"
           AND (strftime(_time, "%Y")="$filter_year$"  OR "$filter_year$"="*")
@@ -232,7 +232,7 @@
       <table>
         <search>
           <query>
-            index=automation_local_user_group_audit sourcetype="user_audit_signoff"
+            index=automation_local_user_group_audit 
             event_type="audit_signoff"
             | where compliance_review_type="$service_catalog$"
             | eval asset_id = coalesce(asset_id, hostname)
@@ -272,7 +272,7 @@
       <table>
         <search>
           <query>
-            index=automation_local_user_group_audit sourcetype="user_audit_signoff"
+            index=automation_local_user_group_audit 
             event_type="audit_signoff"
             | where compliance_review_type="$service_catalog$"
             | eval asset_id = coalesce(asset_id, hostname)
@@ -286,7 +286,7 @@
             | sort - reviewed_at
             | eval "Date of Job"  = coalesce(strftime(strptime(date_of_job, "%Y-%m-%dT%H:%M:%S") + 28800, "%Y-%m-%d %H:%M"), strftime(strptime(date_of_job, "%Y-%m-%dT%H:%M:%SZ") + 28800, "%Y-%m-%d %H:%M"))
             | eval "Review Date"  = coalesce(strftime(strptime(reviewed_at, "%Y-%m-%dT%H:%M:%S.%f+00:00") + 28800, "%Y-%m-%d %H:%M"), strftime(strptime(reviewed_at, "%Y-%m-%dT%H:%M:%S+00:00") + 28800, "%Y-%m-%d %H:%M"))
-            | table "Date of Job" job_id asset_id device department group account_name custodian reviewer_designation review_outcome reviewed_by "Review Date" comments
+            | table "Date of Job" job_id asset_id device department group account_name custodian custodian_designation review_outcome reviewed_by "Review Date" comments
             | rename job_id               as "Job ID"
                      asset_id             as "Asset ID"
                      device               as "Device Type"
@@ -294,7 +294,7 @@
                      group                as "Group"
                      account_name         as "Account Name"
                      custodian            as "Custodian"
-                     reviewer_designation as "Reviewer Designation"
+                     custodian_designation as "Custodian Designation"
                      review_outcome       as "Review Outcome"
                      reviewed_by          as "Reviewed By"
                      comments             as "Comments"
