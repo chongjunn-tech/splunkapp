@@ -60,9 +60,7 @@ class SignoffHandler(rest.BaseRestHandler):
                 "reviewed_by",
                 "reviewed_at",
                 "audit_year",
-                "audit_source",
-                "reviewed_by_info",  # legacy aliases — never write these
-                "review_date_info",
+                "audit_source"
             }
 
             for key, value in payload.items():

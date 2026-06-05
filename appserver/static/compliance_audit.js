@@ -880,9 +880,12 @@ require([
                     device:                 meta.device                 || "",
                     department:             meta.department              || "",
                     group:                  meta.group                  || "",
-                    review_outcome:         rowOutcomes[key]            || "",
                     comments:               rowComments[key]            || ""
                 };
+                // if account , then review_outcome is required
+                if (meta.compliance_review_type === "account") {
+                    signoffPayload.review_outcome = rowOutcomes[key];
+                }
 
                 // Merge all row fields into the payload so the signoff event is self-contained
                 if (fullRow) {
