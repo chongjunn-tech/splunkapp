@@ -7,6 +7,15 @@ require([
     "splunkjs/mvc/simplexml/ready!"
 ], function(mvc, SearchManager, CONFIG, $) {
 
+    // ── Table styles — horizontal scroll + per-cell max-width wrap ───────────
+    $("<style>")
+        .text(
+            ".audit-table { border-collapse:collapse; }" +
+            ".audit-table th { white-space:nowrap; padding:6px 8px; }" +
+            ".audit-table td { word-break:break-word; white-space:normal; vertical-align:top; padding:4px 6px; max-width:220px; }"
+        )
+        .appendTo("head");
+
     var tokens               = mvc.Components.getInstance("default");
     var selected             = {};
     var selectedMeta         = {};  // key -> { compliance_review_type, device, department, group, date_of_job_raw }
@@ -405,7 +414,7 @@ require([
         };
 
         if (!rows || rows.length === 0) {
-            var emptyHtml = "<table class='audit-table' style='min-width:100%;white-space:nowrap;border-collapse:collapse;'><thead><tr>";
+            var emptyHtml = "<table class='audit-table' style='min-width:100%;border-collapse:collapse;'><thead><tr>";
             emptyHtml += "<th style='width:32px;min-width:32px;'></th>";
             COLS.forEach(function(c) {
                 var w = COL_WIDTHS[c.key] || "100px";
@@ -417,7 +426,7 @@ require([
             return;
         }
 
-        var html = "<table class='audit-table' style='min-width:100%;white-space:nowrap;border-collapse:collapse;'><thead><tr>";
+        var html = "<table class='audit-table' style='min-width:100%;border-collapse:collapse;'><thead><tr>";
         html += "<th style='width:32px;min-width:32px;'><input type='checkbox' id='chk-all' title='Select all'></th>";
         COLS.forEach(function(c) {
             var w = COL_WIDTHS[c.key] || "100px";
