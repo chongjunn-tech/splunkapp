@@ -52,13 +52,11 @@
       <search>
         <query>
           index=automation_local_user_group_audit
-          (sourcetype="custom:automation_local_user_group_audit:asset_logs"
-           OR sourcetype="custom:automation_local_user_group_audit:asset_group_logs"
-           OR sourcetype="custom:automation_local_user_group_audit:account_logs")
           earliest=-3y latest=now
           | spath input=_raw path=time output=job_time
-
+ 
           | where compliance_review_type="$service_catalog$"
+          AND isnotnull(job_time) AND job_time!=""
           | eval year = substr(job_time, 1, 4)
           | stats count by year
           | sort - year
@@ -152,6 +150,7 @@
           AND (substr(job_time, 1, 4)="$filter_year$"  OR "$filter_year$"="*")
           AND (substr(job_time, 6, 2)="$filter_month$" OR "$filter_month$"="*")
           AND (device="$filter_device$" OR "$filter_device$"="*")
+          | where isnotnull(department) AND department!=""
           | stats count by department | fields department
         </query>
         <earliestTime>-3y</earliestTime>
@@ -179,6 +178,7 @@
           AND (substr(job_time, 6, 2)="$filter_month$" OR "$filter_month$"="*")
           AND (device="$filter_device$"   OR "$filter_device$"="*")
           AND (department="$filter_dept$" OR "$filter_dept$"="*")
+          | where isnotnull(group) AND group!=""
           | stats count by group | fields group
         </query>
         <earliestTime>-3y</earliestTime>
