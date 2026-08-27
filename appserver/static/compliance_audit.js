@@ -587,7 +587,7 @@ require([
             .concat(evalLines)
             .concat([
                 '| sort 0 asset_id device department group' + (cfg.perAccount ? ' account_name' : '') + ' -date_of_job_raw',
-                '| dedup record_id',
+                '| dedup asset_id device' + (cfg.perAccount ? ' account_name' : ''),
                 '| join type=left max=1 record_id [',
                 '    search index=automation_local_user_group_audit sourcetype="user_audit_signoff" event_type="audit_signoff" earliest=-3y latest=now',
                 '    | sort 0 - reviewed_at',
