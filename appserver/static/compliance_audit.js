@@ -575,11 +575,12 @@ require([
             ]
             .concat(spathLines)
             .concat([
+                '| eval group_check = "," . group . ","',
                 '| where compliance_review_type="' + reviewType + '"'
                     + ' AND (device="'     + device + '" OR "' + device + '"="*")'
                     + ' AND (asset_id="'   + asset  + '" OR "' + asset  + '"="*")'
                     + ' AND (department="' + dept   + '" OR "' + dept   + '"="*")'
-                    + ' AND (group="'      + group  + '" OR "' + group  + '"="*")'
+                    + ' AND ("' + group + '"="*" OR like(group_check, "%,' + group + ',%"))'
                     + ' AND (substr(date_of_job_raw, 1, 4)="' + filterYear  + '" OR "' + filterYear  + '"="*")'
                     + ' AND (substr(date_of_job_raw, 6, 2)="' + filterMonth + '" OR "' + filterMonth + '"="*")',
             ])
