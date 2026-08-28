@@ -1,10 +1,11 @@
 <form version="1.1" script="compliance_audit.js" stylesheet="compliance_audit.css">
   <label>Asset &amp; Account Compliance Review</label>
-  <description>Asset-level review of local users and groups, and account-level review of individual account access. It will get the latest audit data for the specified asset id with the device type</description>
+  <description>Asset-level review of local users and groups, and account-level review of individual account access. By default,it will get the latest audit data for a specified asset id - device type for local user group audit and asset id - device type - account name for account access review</description>
 
   <init>
     <set token="review_type_label">Asset - Local User Review</set>
     <eval token="review_type_label">case(service_catalog="group", "Asset - Local Group Review", service_catalog="account", "Account - Access Review", true(), "Asset - Local User Review")</eval>
+    <eval token="show_custodian_filter">case(service_catalog="account", "yes", true(), null())</eval>
   </init>
 
   <fieldset submitButton="false" autoRun="true">
@@ -43,6 +44,8 @@
         <set token="form.filter_job_id">*</set>
         <set token="filter_reviewer">all</set>
         <set token="form.filter_reviewer">all</set>
+        <set token="filter_custodian">*</set>
+        <set token="form.filter_custodian">*</set>
       </change>
     </input>
 
@@ -274,6 +277,29 @@
       </search>
       <fieldForLabel>reviewed_by</fieldForLabel>
       <fieldForValue>reviewed_by</fieldForValue>
+    </input>
+
+    <!-- Custodian filter — only visible for Account review -->
+    <input type="dropdown" token="filter_custodian" searchWhenChanged="true" depends="$show_custodian_filter$">
+      <label>Custodian</label>
+      <default>*</default>
+      <choice value="*">-- All Custodians --</choice>
+      <search>
+        <query>
+          index=automation_local_user_group_audit event_type="audit" earliest=-3y latest=now
+          | where compliance_review_type="$service_catalog$"
+          AND (device="$filter_device$"   OR "$filter_device$"="*")
+          AND (department="$filter_dept$" OR "$filter_dept$"="*")
+          AND (asset_id="$filter_asset$" OR "$filter_asset$"="*")
+          | where isnotnull(custodian) AND custodian!=""
+          | stats count by custodian | fields custodian
+          | sort custodian
+        </query>
+        <earliestTime>-3y</earliestTime>
+        <latestTime>now</latestTime>
+      </search>
+      <fieldForLabel>custodian</fieldForLabel>
+      <fieldForValue>custodian</fieldForValue>
     </input>
 
   </fieldset>

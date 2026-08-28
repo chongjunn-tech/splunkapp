@@ -45,8 +45,12 @@
         <set token="form.filter_dept">*</set>
         <set token="filter_asset">*</set>
         <set token="form.filter_asset">*</set>
+        <set token="filter_job_id">*</set>
+        <set token="form.filter_job_id">*</set>
         <set token="filter_reviewer">*</set>
         <set token="form.filter_reviewer">*</set>
+        <set token="filter_custodian">*</set>
+        <set token="form.filter_custodian">*</set>
       </change>
     </input>
 
@@ -80,8 +84,12 @@
         <set token="form.filter_dept">*</set>
         <set token="filter_asset">*</set>
         <set token="form.filter_asset">*</set>
+        <set token="filter_job_id">*</set>
+        <set token="form.filter_job_id">*</set>
         <set token="filter_reviewer">*</set>
         <set token="form.filter_reviewer">*</set>
+        <set token="filter_custodian">*</set>
+        <set token="form.filter_custodian">*</set>
       </change>
     </input>
 
@@ -116,8 +124,12 @@
         <set token="form.filter_dept">*</set>
         <set token="filter_asset">*</set>
         <set token="form.filter_asset">*</set>
+        <set token="filter_job_id">*</set>
+        <set token="form.filter_job_id">*</set>
         <set token="filter_reviewer">*</set>
         <set token="form.filter_reviewer">*</set>
+        <set token="filter_custodian">*</set>
+        <set token="form.filter_custodian">*</set>
       </change>
     </input>
 
@@ -205,6 +217,29 @@
       <fieldForValue>asset_id</fieldForValue>
     </input>
 
+    <input type="dropdown" token="filter_job_id" searchWhenChanged="true" depends="$filter_asset$">
+      <label>Job ID</label>
+      <choice value="*">-- All Jobs --</choice>
+      <default>*</default>
+      <search>
+        <query>
+          index=automation_local_user_group_audit
+          event_type="audit_signoff"
+          | where compliance_review_type="$service_catalog$"
+          AND (strftime(_time, "%Y")="$filter_year$"  OR "$filter_year$"="*")
+          AND (strftime(_time, "%m")="$filter_month$" OR "$filter_month$"="*")
+          AND (device="$filter_device$" OR "$filter_device$"="*")
+          AND (department="$filter_dept$" OR "$filter_dept$"="*")
+          AND (asset_id="$filter_asset$" OR "$filter_asset$"="*")
+          | where isnotnull(job_id) AND job_id!=""
+          | stats count by job_id | fields job_id
+          | sort - job_id
+        </query>
+      </search>
+      <fieldForLabel>job_id</fieldForLabel>
+      <fieldForValue>job_id</fieldForValue>
+    </input>
+
     <input type="dropdown" token="filter_reviewer" searchWhenChanged="true">
       <label>Reviewer</label>
       <choice value="*">All Reviewers</choice>
@@ -221,6 +256,30 @@
       </search>
       <fieldForLabel>reviewed_by</fieldForLabel>
       <fieldForValue>reviewed_by</fieldForValue>
+    </input>
+
+    <!-- Custodian filter — only visible for Account review -->
+    <input type="dropdown" token="filter_custodian" searchWhenChanged="true" depends="$show_account$">
+      <label>Custodian</label>
+      <choice value="*">-- All Custodians --</choice>
+      <default>*</default>
+      <search>
+        <query>
+          index=automation_local_user_group_audit
+          event_type="audit_signoff"
+          | where compliance_review_type="$service_catalog$"
+          AND (strftime(_time, "%Y")="$filter_year$"  OR "$filter_year$"="*")
+          AND (strftime(_time, "%m")="$filter_month$" OR "$filter_month$"="*")
+          AND (device="$filter_device$" OR "$filter_device$"="*")
+          AND (department="$filter_dept$" OR "$filter_dept$"="*")
+          AND (asset_id="$filter_asset$" OR "$filter_asset$"="*")
+          | where isnotnull(custodian) AND custodian!=""
+          | stats count by custodian | fields custodian
+          | sort custodian
+        </query>
+      </search>
+      <fieldForLabel>custodian</fieldForLabel>
+      <fieldForValue>custodian</fieldForValue>
     </input>
 
   </fieldset>
@@ -243,6 +302,7 @@
             | where (asset_id="$filter_asset$"                OR "$filter_asset$"="*")
             | where (department="$filter_dept$"               OR "$filter_dept$"="*")
             | where (reviewed_by="$filter_reviewer$"          OR "$filter_reviewer$"="*")
+            | where (job_id="$filter_job_id$"                 OR "$filter_job_id$"="*")
             | sort - reviewed_at
             | eval "Date of Job"  = coalesce(strftime(strptime(date_of_job, "%Y-%m-%dT%H:%M:%S") + 28800, "%Y-%m-%d %H:%M"), strftime(strptime(date_of_job, "%Y-%m-%dT%H:%M:%SZ") + 28800, "%Y-%m-%d %H:%M"))
             | eval "Review Date"  = coalesce(strftime(strptime(reviewed_at, "%Y-%m-%dT%H:%M:%S.%f+00:00") + 28800, "%Y-%m-%d %H:%M"), strftime(strptime(reviewed_at, "%Y-%m-%dT%H:%M:%S+00:00") + 28800, "%Y-%m-%d %H:%M"))
@@ -283,6 +343,8 @@
             | where (asset_id="$filter_asset$"                OR "$filter_asset$"="*")
             | where (department="$filter_dept$"               OR "$filter_dept$"="*")
             | where (reviewed_by="$filter_reviewer$"          OR "$filter_reviewer$"="*")
+            | where (job_id="$filter_job_id$"                 OR "$filter_job_id$"="*")
+            | where (custodian="$filter_custodian$"           OR "$filter_custodian$"="*")
             | sort - reviewed_at
             | eval "Date of Job"  = coalesce(strftime(strptime(date_of_job, "%Y-%m-%dT%H:%M:%S") + 28800, "%Y-%m-%d %H:%M"), strftime(strptime(date_of_job, "%Y-%m-%dT%H:%M:%SZ") + 28800, "%Y-%m-%d %H:%M"))
             | eval "Review Date"  = coalesce(strftime(strptime(reviewed_at, "%Y-%m-%dT%H:%M:%S.%f+00:00") + 28800, "%Y-%m-%d %H:%M"), strftime(strptime(reviewed_at, "%Y-%m-%dT%H:%M:%S+00:00") + 28800, "%Y-%m-%d %H:%M"))

@@ -539,6 +539,7 @@ require([
         var dept        = tokens.get("filter_dept")    || "*";
         var asset       = tokens.get("filter_asset")    || "*";
         var jobId       = tokens.get("filter_job_id")   || "*";
+        var custodian   = tokens.get("filter_custodian") || "*";
         var device      = tokens.get("filter_device")  || "*";
         var group       = tokens.get("filter_group")   || "*";
         var reviewer    = tokens.get("filter_reviewer") || "all";
@@ -581,6 +582,7 @@ require([
                     + ' AND (device="'     + device + '" OR "' + device + '"="*")'
                     + ' AND (asset_id="'   + asset  + '" OR "' + asset  + '"="*")'
                     + ' AND (job_id="'     + jobId  + '" OR "' + jobId  + '"="*")'
+                    + (cfg.perAccount ? (' AND (custodian="' + custodian + '" OR "' + custodian + '"="*")') : '')
                     + ' AND (department="' + dept   + '" OR "' + dept   + '"="*")'
                     + ' AND ("' + group + '"="*" OR like(group_check, "%,' + group + ',%"))'
                     + ' AND (substr(date_of_job_raw, 1, 4)="' + filterYear  + '" OR "' + filterYear  + '"="*")'
@@ -611,7 +613,8 @@ require([
                 '| sort 0 department asset_id' + (cfg.perAccount ? ' account_name' : '') + ' -date_of_job_raw',
                 '| table ' + cfg.tableFields
             ]).filter(Boolean).join(" ");
-
+        
+        // ONLY IN SPLUNK SIT
         console.log("[Audit] Query:", query);
         currentSearchManager = new SearchManager({
             id:        "audit-search-main",
@@ -759,6 +762,7 @@ require([
         var f_group    = tokens.get("filter_group")    || "all";
         var f_host     = tokens.get("filter_asset")     || "all";
         var f_job_id   = tokens.get("filter_job_id")    || "all";
+        var f_custodian = tokens.get("filter_custodian") || "all";
         var f_reviewer = tokens.get("filter_reviewer") || "all";
         var _now       = new Date();
         var timestamp  = _now.toISOString().slice(0, 10)
@@ -767,7 +771,7 @@ require([
                        + String(_now.getSeconds()).padStart(2, "0");
         var filename   = [
             "compliance_audit",
-            f_catalog, f_year, f_month, f_device, f_dept, f_group, f_host, f_job_id, f_reviewer,
+            f_catalog, f_year, f_month, f_device, f_dept, f_group, f_host, f_job_id, f_reviewer, f_custodian,
             timestamp
         ].join("_").replace(/\*/g, "all") + ".csv";
 
@@ -787,7 +791,7 @@ require([
     // or XML init runs — so this approach survives page refresh reliably.
     var FILTER_KEYS = [
         "service_catalog", "filter_year", "filter_month",
-        "filter_device", "filter_dept", "filter_group", "filter_asset", "filter_job_id", "filter_reviewer"
+        "filter_device", "filter_dept", "filter_group", "filter_asset", "filter_job_id", "filter_reviewer", "filter_custodian"
     ];
 
     function saveFilters() {
@@ -814,7 +818,7 @@ require([
     // ── Token listeners ─────────────────────────────────────────────────────
     var savedPage = getSavedPage();
     runAuditSearch(savedPage);
-    tokens.on("change:service_catalog change:filter_year change:filter_month change:filter_device change:filter_dept change:filter_group change:filter_asset change:filter_job_id change:filter_reviewer", function() {
+    tokens.on("change:service_catalog change:filter_year change:filter_month change:filter_device change:filter_dept change:filter_group change:filter_asset change:filter_job_id change:filter_reviewer change:filter_custodian", function() {
         saveFilters();
         runAuditSearch();
     });
