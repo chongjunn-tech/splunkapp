@@ -586,7 +586,7 @@ require([
             ])
             .concat(evalLines)
             .concat([
-                '| sort 0 asset_id device department group' + (cfg.perAccount ? ' account_name' : '') + ' -date_of_job_raw',
+                '| sort 0 asset_id device' + (cfg.perAccount ? ' account_name' : '') + ' -date_of_job_raw',
                 '| dedup asset_id device' + (cfg.perAccount ? ' account_name' : ''),
                 '| join type=left max=1 record_id [',
                 '    search index=automation_local_user_group_audit sourcetype="user_audit_signoff" event_type="audit_signoff" earliest=-3y latest=now',
@@ -609,6 +609,8 @@ require([
                 '| sort 0 department asset_id' + (cfg.perAccount ? ' account_name' : '') + ' -date_of_job_raw',
                 '| table ' + cfg.tableFields
             ]).filter(Boolean).join(" ");
+        
+        console.log("[Audit] Query:", query);
 
         currentSearchManager = new SearchManager({
             id:        "audit-search-main",
