@@ -538,6 +538,7 @@ require([
         var filterMonth = tokens.get("filter_month")   || "*";
         var dept        = tokens.get("filter_dept")    || "*";
         var asset       = tokens.get("filter_asset")    || "*";
+        var jobId       = tokens.get("filter_job_id")   || "*";
         var device      = tokens.get("filter_device")  || "*";
         var group       = tokens.get("filter_group")   || "*";
         var reviewer    = tokens.get("filter_reviewer") || "all";
@@ -579,6 +580,7 @@ require([
                 '| where compliance_review_type="' + reviewType + '"'
                     + ' AND (device="'     + device + '" OR "' + device + '"="*")'
                     + ' AND (asset_id="'   + asset  + '" OR "' + asset  + '"="*")'
+                    + ' AND (job_id="'     + jobId  + '" OR "' + jobId  + '"="*")'
                     + ' AND (department="' + dept   + '" OR "' + dept   + '"="*")'
                     + ' AND ("' + group + '"="*" OR like(group_check, "%,' + group + ',%"))'
                     + ' AND (substr(date_of_job_raw, 1, 4)="' + filterYear  + '" OR "' + filterYear  + '"="*")'
@@ -586,8 +588,6 @@ require([
             ])
             .concat(evalLines)
             .concat([
-                '| sort 0 asset_id device' + (cfg.perAccount ? ' account_name' : '') + ' -date_of_job_raw',
-                '| dedup asset_id device' + (cfg.perAccount ? ' account_name' : ''),
                 '| join type=left max=1 record_id [',
                 '    search index=automation_local_user_group_audit sourcetype="user_audit_signoff" event_type="audit_signoff" earliest=-3y latest=now',
                 '    | sort 0 - reviewed_at',
@@ -606,12 +606,13 @@ require([
                 '  OR ("' + reviewer + '"="unreviewed" AND (reviewed_by="-" OR isnull(reviewed_by)))',
                 '  OR ("' + reviewer + '"!="all" AND "' + reviewer + '"!="*" AND "' + reviewer + '"!="unreviewed" AND reviewed_by="' + reviewer + '")',
                 ')',
+                '| sort 0 asset_id device' + (cfg.perAccount ? ' account_name' : '') + ' -date_of_job_raw',
+                '| dedup asset_id device' + (cfg.perAccount ? ' account_name' : ''),
                 '| sort 0 department asset_id' + (cfg.perAccount ? ' account_name' : '') + ' -date_of_job_raw',
                 '| table ' + cfg.tableFields
             ]).filter(Boolean).join(" ");
-        
-        console.log("[Audit] Query:", query);
 
+        console.log("[Audit] Query:", query);
         currentSearchManager = new SearchManager({
             id:        "audit-search-main",
             search:    query,
@@ -645,6 +646,16 @@ require([
                         if (keepFields[f]) obj[f] = (row[i] !== null && row[i] !== undefined) ? row[i] : "";
                     });
                     return obj;
+                });
+
+                // Deduplicate rows client-side as safety net — some Splunk versions
+                // stream duplicate rows when the data event fires multiple times
+                var seenRecordIds = {};
+                rows = rows.filter(function(r) {
+                    var key = r.record_id || (r.asset_id + "|" + r.device + "|" + r.date_of_job_raw);
+                    if (seenRecordIds[key]) return false;
+                    seenRecordIds[key] = true;
+                    return true;
                 });
 
                 // Pre-populate rowOutcomes and rowComments from saved values returned by the join
@@ -747,6 +758,7 @@ require([
         var f_dept     = tokens.get("filter_dept")     || "all";
         var f_group    = tokens.get("filter_group")    || "all";
         var f_host     = tokens.get("filter_asset")     || "all";
+        var f_job_id   = tokens.get("filter_job_id")    || "all";
         var f_reviewer = tokens.get("filter_reviewer") || "all";
         var _now       = new Date();
         var timestamp  = _now.toISOString().slice(0, 10)
@@ -755,7 +767,7 @@ require([
                        + String(_now.getSeconds()).padStart(2, "0");
         var filename   = [
             "compliance_audit",
-            f_catalog, f_year, f_month, f_device, f_dept, f_group, f_host, f_reviewer,
+            f_catalog, f_year, f_month, f_device, f_dept, f_group, f_host, f_job_id, f_reviewer,
             timestamp
         ].join("_").replace(/\*/g, "all") + ".csv";
 
@@ -775,7 +787,7 @@ require([
     // or XML init runs — so this approach survives page refresh reliably.
     var FILTER_KEYS = [
         "service_catalog", "filter_year", "filter_month",
-        "filter_device", "filter_dept", "filter_group", "filter_asset", "filter_reviewer"
+        "filter_device", "filter_dept", "filter_group", "filter_asset", "filter_job_id", "filter_reviewer"
     ];
 
     function saveFilters() {
@@ -802,7 +814,7 @@ require([
     // ── Token listeners ─────────────────────────────────────────────────────
     var savedPage = getSavedPage();
     runAuditSearch(savedPage);
-    tokens.on("change:service_catalog change:filter_year change:filter_month change:filter_device change:filter_dept change:filter_group change:filter_asset change:filter_reviewer", function() {
+    tokens.on("change:service_catalog change:filter_year change:filter_month change:filter_device change:filter_dept change:filter_group change:filter_asset change:filter_job_id change:filter_reviewer", function() {
         saveFilters();
         runAuditSearch();
     });

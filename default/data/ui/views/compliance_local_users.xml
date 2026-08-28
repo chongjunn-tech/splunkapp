@@ -1,6 +1,6 @@
 <form version="1.1" script="compliance_audit.js" stylesheet="compliance_audit.css">
   <label>Asset &amp; Account Compliance Review</label>
-  <description>Asset-level review of local users and groups, and account-level review of individual account access.</description>
+  <description>Asset-level review of local users and groups, and account-level review of individual account access. It will get the latest audit data for the specified asset id with the device type</description>
 
   <init>
     <set token="review_type_label">Asset - Local User Review</set>
@@ -39,6 +39,8 @@
         <set token="form.filter_group">*</set>
         <set token="filter_asset">*</set>
         <set token="form.filter_asset">*</set>
+        <set token="filter_job_id">*</set>
+        <set token="form.filter_job_id">*</set>
         <set token="filter_reviewer">all</set>
         <set token="form.filter_reviewer">all</set>
       </change>
@@ -54,6 +56,7 @@
           index=automation_local_user_group_audit
           earliest=-3y latest=now
           | spath input=_raw path=time output=job_time
+
           | where compliance_review_type="$service_catalog$"
           AND isnotnull(job_time) AND job_time!=""
           | eval year = substr(job_time, 1, 4)
@@ -79,6 +82,7 @@
           index=automation_local_user_group_audit
           earliest=-3y latest=now
           | spath input=_raw path=time output=job_time
+
           | where compliance_review_type="$service_catalog$"
           AND (substr(job_time, 1, 4)="$filter_year$" OR "$filter_year$"="*")
           | eval month_num   = substr(job_time, 6, 2)
@@ -119,6 +123,7 @@
           index=automation_local_user_group_audit
           earliest=-3y latest=now
           | spath input=_raw path=time output=job_time
+
           | where compliance_review_type="$service_catalog$"
           AND (substr(job_time, 1, 4)="$filter_year$"  OR "$filter_year$"="*")
           AND (substr(job_time, 6, 2)="$filter_month$" OR "$filter_month$"="*")
@@ -143,6 +148,7 @@
           index=automation_local_user_group_audit
           earliest=-3y latest=now
           | spath input=_raw path=time output=job_time
+
           | where compliance_review_type="$service_catalog$"
           AND (substr(job_time, 1, 4)="$filter_year$"  OR "$filter_year$"="*")
           AND (substr(job_time, 6, 2)="$filter_month$" OR "$filter_month$"="*")
@@ -169,6 +175,7 @@
           index=automation_local_user_group_audit
           earliest=-3y latest=now
           | spath input=_raw path=time output=job_time
+
           | where compliance_review_type="$service_catalog$"
           AND (substr(job_time, 1, 4)="$filter_year$"  OR "$filter_year$"="*")
           AND (substr(job_time, 6, 2)="$filter_month$" OR "$filter_month$"="*")
@@ -199,6 +206,7 @@
           index=automation_local_user_group_audit
           earliest=-3y latest=now
           | spath input=_raw path=time output=job_time
+
           | where compliance_review_type="$service_catalog$"
           AND (substr(job_time, 1, 4)="$filter_year$"  OR "$filter_year$"="*")
           AND (substr(job_time, 6, 2)="$filter_month$" OR "$filter_month$"="*")
@@ -216,12 +224,42 @@
       <fieldForValue>asset_id</fieldForValue>
     </input>
 
+    <!-- Job ID filter -->
+    <input type="dropdown" token="filter_job_id" searchWhenChanged="true" depends="$filter_asset$">
+      <label>Job ID</label>
+      <default>*</default>
+      <choice value="*">-- All Jobs --</choice>
+      <search>
+        <query>
+          index=automation_local_user_group_audit
+          earliest=-3y latest=now
+          | spath input=_raw path=time output=job_time
+
+          | where compliance_review_type="$service_catalog$"
+          AND (substr(job_time, 1, 4)="$filter_year$"  OR "$filter_year$"="*")
+          AND (substr(job_time, 6, 2)="$filter_month$" OR "$filter_month$"="*")
+          AND (device="$filter_device$"   OR "$filter_device$"="*")
+          AND (department="$filter_dept$" OR "$filter_dept$"="*")
+          AND (asset_id="$filter_asset$" OR "$filter_asset$"="*")
+          | eval group_check = "," . group . ","
+          | where ("$filter_group$"="*" OR like(group_check, "%,$filter_group$,%"))
+          | where isnotnull(job_id) AND job_id!=""
+          | stats count by job_id | fields job_id
+          | sort - job_id
+        </query>
+        <earliestTime>-3y</earliestTime>
+        <latestTime>now</latestTime>
+      </search>
+      <fieldForLabel>job_id</fieldForLabel>
+      <fieldForValue>job_id</fieldForValue>
+    </input>
+
     <!-- Reviewer filter -->
     <input type="dropdown" token="filter_reviewer" searchWhenChanged="true">
       <label>Reviewer</label>
       <default>all</default>
       <choice value="all">-- All --</choice>
-      <choice value="*">-- All Reviewers --</choice>
+      <choice value="*">-- Any Reviewer (Reviewed Only) --</choice>
       <choice value="unreviewed">-- Not Yet Reviewed --</choice>
       <search>
         <query>
