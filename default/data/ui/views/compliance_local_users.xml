@@ -281,7 +281,7 @@
 
     <!-- Custodian filter — only visible for Account review -->
     <input type="dropdown" token="filter_custodian" searchWhenChanged="true" depends="$show_custodian_filter$">
-      <label>Custodian</label>
+      <label>Custodian Name</label>
       <default>*</default>
       <choice value="*">-- All Custodians --</choice>
       <search>

@@ -140,7 +140,8 @@ require([
                 { key: "role_name",            label: "Role Name" },
                 { key: "role_scope",           label: "Role Scope" },
                 { key: "last_login",           label: "Last Login" },
-                { key: "custodian",            label: "Custodian" },
+                { key: "custodian_id",         label: "Custodian ID" },
+                { key: "custodian",            label: "Custodian Name" },
                 { key: "custodian_designation", label: "Custodian Designation" },
                 { key: "review_outcome",       label: "Review Outcome", isOutcome: true },
                 { key: "reviewed_by",          label: "Reviewed By" },
@@ -149,7 +150,7 @@ require([
             ],
             spathFields: [],
             mvEvals: [],
-            tableFields: "record_id asset_id device compliance_review_type date_of_job date_of_job_raw job_id department group account_name account_type account_origin account_status role_name role_scope last_login custodian custodian_designation review_outcome reviewed_by reviewed_at comments"
+            tableFields: "record_id asset_id device compliance_review_type date_of_job date_of_job_raw job_id department group account_name account_type account_origin account_status role_name role_scope last_login custodian_id custodian custodian_designation review_outcome reviewed_by reviewed_at comments"
         }
     };
 
@@ -385,7 +386,8 @@ require([
             role_name:            "60px",
             role_scope:           "55px",
             last_login:           "80px",
-            custodian:            "65px",
+            custodian_id:         "65px",
+            custodian:            "80px",
             custodian_designation: "70px",
             review_outcome:       "80px",
             reviewed_by:          "60px",
@@ -608,8 +610,10 @@ require([
                 '  OR ("' + reviewer + '"="unreviewed" AND (reviewed_by="-" OR isnull(reviewed_by)))',
                 '  OR ("' + reviewer + '"!="all" AND "' + reviewer + '"!="*" AND "' + reviewer + '"!="unreviewed" AND reviewed_by="' + reviewer + '")',
                 ')',
-                '| sort 0 asset_id device' + (cfg.perAccount ? ' account_name' : '') + ' -date_of_job_raw',
-                '| dedup asset_id device' + (cfg.perAccount ? ' account_name' : ''),
+                // '| sort 0 asset_id device' + (cfg.perAccount ? ' account_name' : '') + ' -date_of_job_raw',
+                // '| dedup asset_id device' + (cfg.perAccount ? ' account_name' : ''),
+                '| sort 0 asset_id device' + (cfg.perAccount ? ' account_name' : '') + (cfg.perAccount && device === 'TAS' ? ' role_scope role_name account_origin' : '') + ' -date_of_job_raw',
+                '| dedup asset_id device' + (cfg.perAccount ? ' account_name' : '') + (cfg.perAccount && device === 'TAS' ? ' role_scope role_name account_origin' : ''),
                 '| sort 0 department asset_id' + (cfg.perAccount ? ' account_name' : '') + ' -date_of_job_raw',
                 '| table ' + cfg.tableFields
             ]).filter(Boolean).join(" ");
